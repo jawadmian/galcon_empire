@@ -22,6 +22,7 @@ public partial class EmpireManager : Node
     }
 
     // This is a test comment
+    // This is another test comment
     [ExportGroup("Empire Spawning")]
     [Export]
     public PackedScene EmpireToSpawn { get; set; } // Drag your Empire.tscn here
