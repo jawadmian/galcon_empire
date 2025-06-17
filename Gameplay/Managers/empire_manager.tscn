@@ -1,0 +1,11 @@
+[gd_scene load_steps=4 format=3 uid="uid://cb8fiodcncohy"]
+
+[ext_resource type="Script" uid="uid://bhyod3dvh07c1" path="res://Gameplay/Managers/EmpireManager.cs" id="1_cwr5d"]
+[ext_resource type="Resource" uid="uid://gcvyp1as41oc" path="res://Data/EmpireNames.tres" id="2_7k8ih"]
+[ext_resource type="PackedScene" uid="uid://wcqqh7vq7otc" path="res://Gameplay/Empire.tscn" id="2_etser"]
+
+[node name="EmpireManager" type="Node2D"]
+script = ExtResource("1_cwr5d")
+EmpireToSpawn = ExtResource("2_etser")
+NumberOfEmpiresToSpawn = 3
+EmpireNamesResource = ExtResource("2_7k8ih")

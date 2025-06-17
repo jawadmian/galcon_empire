@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="ImprovementResource" load_steps=2 format=3 uid="uid://ob5dlux5tjvw"]
+
+[ext_resource type="Script" uid="uid://dlw4b8trmmkgu" path="res://Data/ImprovementResource.cs" id="1_ptdwd"]
+
+[resource]
+script = ExtResource("1_ptdwd")
+ImprovementName = "Basic Mine"
+ImprovementDescription = "Basic mine to produce Ore"
+ResourceOutput = Dictionary[int, int]({
+1: 500
+})
+metadata/_custom_type_script = "uid://dlw4b8trmmkgu"

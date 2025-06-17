@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="ImprovementResource" load_steps=2 format=3 uid="uid://c2wjfi8040yim"]
+
+[ext_resource type="Script" uid="uid://dlw4b8trmmkgu" path="res://Data/ImprovementResource.cs" id="1_ub316"]
+
+[resource]
+script = ExtResource("1_ub316")
+ImprovementName = "Basic Market"
+ImprovementDescription = "A baisc center of galactic commerce"
+ResourceOutput = Dictionary[int, int]({
+2: 500
+})
+metadata/_custom_type_script = "uid://dlw4b8trmmkgu"

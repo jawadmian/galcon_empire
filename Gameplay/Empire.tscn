@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://wcqqh7vq7otc"]
+
+[ext_resource type="Script" uid="uid://3a5tjug1dgdr" path="res://Gameplay/Empire.cs" id="1_e07k0"]
+
+[node name="Empire" type="Node"]
+script = ExtResource("1_e07k0")

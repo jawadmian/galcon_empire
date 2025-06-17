@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="StringArrayResource" load_steps=2 format=3 uid="uid://cxwe5j368cvwx"]
+
+[ext_resource type="Script" uid="uid://cv63cpmje0sh0" path="res://Data/StringArrayResource.cs" id="1_o5h7k"]
+
+[resource]
+script = ExtResource("1_o5h7k")
+Items = Array[String](["Sirius", "Canopus", "Rigel", "Vega", "Capella", "Arcturus", "Procyon", "Altair", "Betelgeuse", "Aldebaran", "Spica", "Antares", "Pollux", "Fomalhaut", "Deneb", "Regulus", "Adhara", "Castor", "Shaula", "Bellatrix", "Miaplacidus", "Alnilam", "Alnair", "Mirfak", "Dubhe", "Wezen", "Kaus Australis", "Sargas", "Gacrux", "Saiph", "Dschubba", "Avior", "Acrux", "Nunki", "Ascella", "Sabik", "Alphecca", "Algol", "Menkalinan", "Muhlifain", "Sadr", "Eltanin", "Rukbat", "Nashira", "Kochab", "Albireo", "Ankaa", "Atria", "Enif", "Denebola", "Mimosa", "Zubenelgenubi", "Vindemiatrix", "Thuban", "Polaris", "Rasalhague", "Alcor", "Mizar", "Merak", "Alioth", "Megrez", "Phad", "Cor Caroli", "Diadem", "Alcyone", "Atlas", "Electra", "Maia", "Merope", "Taygeta", "Pleione", "Celaeno", "Mirach", "Schedar", "Caph", "Achernar", "Hadar", "Rigil Kentaurus", "Proxima Centauri", "Hamal", "Sheratan", "Mira", "Gemma", "Rasalgethi", "Alkaid", "Diphda", "Baten Kaitos", "Lesath", "Etamin", "Ruchbah", "Scheat", "Markab", "Fum al Samakah", "Adara", "Alhena", "Alderamin", "Nembus", "Almach", "Alshain", "Alkes", "Nihal", "Arneb", "Elnath", "Zosma", "Porrima", "Deneb Kaitos", "Gomeisa", "Izar", "Jabbah", "Khambalia", "Larawag"])
+metadata/_custom_type_script = "uid://cv63cpmje0sh0"

@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="StringArrayResource" load_steps=2 format=3 uid="uid://gcvyp1as41oc"]
+
+[ext_resource type="Script" uid="uid://cv63cpmje0sh0" path="res://Data/StringArrayResource.cs" id="1_qgkup"]
+
+[resource]
+script = ExtResource("1_qgkup")
+Items = Array[String](["Stellar Dominion", "Galactic Imperium", "Sovereign Concordat", "Cosmic Hegemony", "Luminal Directorate", "United Star Systems", "Radiant Commonwealth", "Celestial Mandate", "Ascendant Coalition", " Veilbound Dynasty", "Whisperwind Collective", "Chronos Enclave", " Obscurus Combine", "Eldritch Sovereignty"])
+metadata/_custom_type_script = "uid://cv63cpmje0sh0"
