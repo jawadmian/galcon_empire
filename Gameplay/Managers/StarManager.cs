@@ -101,37 +101,16 @@ public partial class StarManager : Node
         return _spawnedStars.AsReadOnly();
     }
 
-    public override void _Process(double delta)
+    public void UpdateTick()
     {
-        float dt = (float)delta;
-
-        // If the interval is not positive, population updates are effectively paused.
-        // This check prevents issues if the interval is misconfigured.
-        if (PopulationUpdateInterval <= 0f)
+        foreach (Star star in _spawnedStars)
         {
-            // Optionally, log a warning once if this state is undesirable.
-            GD.PrintErr(
-                "StarManager: PopulationUpdateInterval is not positive. Population updates paused."
-            );
-            return;
-        }
+            if (star == null || !IsInstanceValid(star))
+                continue; // Safety check
 
-        _populationUpdateTimer += dt;
-
-        // Check if enough time has passed to perform the population update.
-        if (_populationUpdateTimer >= PopulationUpdateInterval)
-        {
-            foreach (Star star in _spawnedStars)
-            {
-                if (star == null || !IsInstanceValid(star))
-                    continue; // Safety check
-
-                // Call UpdateTick with the configured interval as its delta.
-                // The Star.UpdateTick logic will use this interval for its calculations.
-                star.UpdateTick();
-            }
-            // Subtract the processed interval from the timer to carry over any remainder.
-            _populationUpdateTimer -= PopulationUpdateInterval;
+            // Call UpdateTick with the configured interval as its delta.
+            // The Star.UpdateTick logic will use this interval for its calculations.
+            star.UpdateTick();
         }
     }
 

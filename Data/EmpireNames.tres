@@ -4,5 +4,5 @@
 
 [resource]
 script = ExtResource("1_qgkup")
-Items = Array[String](["Stellar Dominion", "Galactic Imperium", "Sovereign Concordat", "Cosmic Hegemony", "Luminal Directorate", "United Star Systems", "Radiant Commonwealth", "Celestial Mandate", "Ascendant Coalition", " Veilbound Dynasty", "Whisperwind Collective", "Chronos Enclave", " Obscurus Combine", "Eldritch Sovereignty"])
+Items = Array[String](["Stellar Dominion", "Galactic Imperium", "Sovereign Concordat", "Cosmic Hegemony", "Luminal Directorate", "United Star Systems", "Radiant Commonwealth", "Celestial Mandate", "Ascendant Coalition", " Veilbound Dynasty", "Whisperwind Collective", "Chronos Enclave", "Obscurus Combine", "Eldritch Sovereignty"])
 metadata/_custom_type_script = "uid://cv63cpmje0sh0"

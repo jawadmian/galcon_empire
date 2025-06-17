@@ -1,8 +1,11 @@
-[gd_scene load_steps=4 format=3 uid="uid://cq4usjn7pkw4n"]
+[gd_scene load_steps=7 format=3 uid="uid://cq4usjn7pkw4n"]
 
 [ext_resource type="Script" uid="uid://bg0eepun7as6e" path="res://Gameplay/GalaxySpawner.cs" id="1_3fr7q"]
 [ext_resource type="PackedScene" uid="uid://cb8fiodcncohy" path="res://Gameplay/Managers/empire_manager.tscn" id="3_vy2bj"]
-[ext_resource type="PackedScene" uid="uid://bxxp16sxflcn2" path="res://Gameplay/star_manager.tscn" id="4_gjuov"]
+[ext_resource type="PackedScene" uid="uid://c7t4t6mruf4is" path="res://UI/empires_list.tscn" id="4_ghfqa"]
+[ext_resource type="PackedScene" uid="uid://bxxp16sxflcn2" path="res://Gameplay/Managers/star_manager.tscn" id="4_gjuov"]
+[ext_resource type="PackedScene" uid="uid://dm0yuho3js44b" path="res://Gameplay/Managers/tick_manager.tscn" id="5_gjuov"]
+[ext_resource type="PackedScene" uid="uid://k5loqd0xcpnr" path="res://Data/Improvements/debug_ui.tscn" id="6_o1ifh"]
 
 [node name="GalaxySpawner" type="Node2D"]
 script = ExtResource("1_3fr7q")
@@ -12,5 +15,17 @@ position = Vector2(1153, 644)
 zoom = Vector2(0.5, 0.5)
 
 [node name="StarManager" parent="." instance=ExtResource("4_gjuov")]
+MinStarDistanceSquared = 2072.0
 
 [node name="EmpireManager" parent="." instance=ExtResource("3_vy2bj")]
+
+[node name="TickManager" parent="." instance=ExtResource("5_gjuov")]
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="EmpiresList" parent="CanvasLayer" instance=ExtResource("4_ghfqa")]
+offset_left = 952.0
+
+[node name="DebugUI" parent="CanvasLayer" instance=ExtResource("6_o1ifh")]
+offset_top = 535.0
+offset_right = -1022.0

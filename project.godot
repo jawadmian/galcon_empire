@@ -15,6 +15,10 @@ run/main_scene="uid://cq4usjn7pkw4n"
 config/features=PackedStringArray("4.4", "C#", "GL Compatibility")
 config/icon="res://icon.svg"
 
+[autoload]
+
+TickManager="*res://Gameplay/Managers/tick_manager.tscn"
+
 [dotnet]
 
 project/assembly_name="New Game Project"

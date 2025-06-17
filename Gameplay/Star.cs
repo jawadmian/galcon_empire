@@ -10,12 +10,13 @@ public partial class Star : Node2D
 
     // Population and growth parameters
     private int _population = 0;
-    private int foodProductionPerTick = 0;
-    private int oreProductionPerTick = 0;
-    private int moneyProductionPerTick = 0;
+
+    // Production map: ResourceType -> production amount per tick
+    public Dictionary<ResourceType, int> ProductionPerTick { get; private set; } =
+        new Dictionary<ResourceType, int>();
 
     public int MaxPopulation { get; set; } = 100000;
-    public float GrowthRate { get; set; } = 1.01f; // Represents a factor, e.g., 1.01 for specific growth behavior.
+    public float GrowthRate { get; set; } = 0.01f; // Represents a factor, e.g., 1.01 for specific growth behavior.
 
     // List of improvements on this star
     [Export]
@@ -74,19 +75,31 @@ public partial class Star : Node2D
     // Public property to set the name label color
     public int StarFoodProduction
     {
-        get => foodProductionPerTick;
+        get
+        {
+            ProductionPerTick.TryGetValue(ResourceType.Food, out int value);
+            return value;
+        }
     }
 
     // Public property for Ore Production
     public int StarOreProduction
     {
-        get => oreProductionPerTick;
+        get
+        {
+            ProductionPerTick.TryGetValue(ResourceType.Ore, out int value);
+            return value;
+        }
     }
 
     // Public property for Money Production
     public int StarMoneyProduction
     {
-        get => moneyProductionPerTick;
+        get
+        {
+            ProductionPerTick.TryGetValue(ResourceType.Money, out int value);
+            return value;
+        }
     }
 
     public void UpdateTick()
@@ -117,26 +130,24 @@ public partial class Star : Node2D
         GD.Print($"Adding improvement to star: {improvement.ImprovementName}");
         Improvements.Add(improvement);
 
-        // Recalculate star productions
-        foodProductionPerTick = 0;
-        oreProductionPerTick = 0;
-        moneyProductionPerTick = 0;
+        // Recalculate star productions by resetting the map and summing up all improvements
+        ProductionPerTick.Clear();
+
         foreach (ImprovementResource entry in Improvements)
         {
-            if (entry.ResourceOutput.TryGetValue(ResourceType.Food, out int foodOutput))
+            foreach (var kvp in entry.ResourceOutput)
             {
-                foodProductionPerTick += foodOutput;
-                GD.Print($"Food output {foodOutput}");
-            }
-            if (entry.ResourceOutput.TryGetValue(ResourceType.Ore, out int oreOutput))
-            {
-                GD.Print($"Ore output {oreOutput}");
-                oreProductionPerTick += oreOutput;
-            }
-            if (entry.ResourceOutput.TryGetValue(ResourceType.Money, out int moneyOutput))
-            {
-                GD.Print($"Money output {moneyOutput}");
-                moneyProductionPerTick += moneyOutput;
+                ResourceType type = kvp.Key;
+                int amount = kvp.Value;
+
+                if (ProductionPerTick.ContainsKey(type))
+                {
+                    ProductionPerTick[type] += amount;
+                }
+                else
+                {
+                    ProductionPerTick[type] = amount;
+                }
             }
         }
     }
@@ -249,7 +260,7 @@ public partial class Star : Node2D
             {
                 GD.Print("star info is a Control node");
                 // Center the popup on the star's global position
-                controlPopup.GlobalPosition = this.GlobalPosition - controlPopup.Size / 2f;
+                //controlPopup.GlobalPosition = this.GlobalPosition - controlPopup.Size / 2f;
             }
             else
             {

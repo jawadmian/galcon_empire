@@ -73,10 +73,29 @@ public partial class EmpireManager : Node
             // Non-critical, can proceed.
         }
 
+        if (TickManager.Instance.IsNodeReady())
+        {
+            OnTickManagerReady();
+        }
+        else
+        {
+            TickManager.Instance.Ready += OnTickManagerReady;
+        }
         RandomizeEmpireNames(); // Prepare empire names
         LoadImprovements(); // Load available improvements
         // Defer empire spawning to ensure stars are ready (StarManager should have run its _Ready by now).
         CallDeferred(nameof(SpawnEmpiresInternal));
+    }
+
+    private void OnTickManagerReady()
+    {
+        GD.Print("EmpireManager: TickManager is ready.");
+        TickManager.Instance.TickUpdateSignal += OnEmpireManagerUpdateTick;
+    }
+
+    private void OnEmpireManagerUpdateTick(int tickCount)
+    {
+        GD.Print($"Empire Manager updates for tick {tickCount}");
     }
 
     public override void _ExitTree()
@@ -217,6 +236,18 @@ public partial class EmpireManager : Node
                 GD.Print(
                     $"EmpireManager: Spawned '{empireInstance.EmpireName}' (Color: {empireInstance.EmpireColor}) with Home Star: {homeStar.StarName} at {homeStar.GlobalPosition}. Parent: {empireInstance.GetParent()?.Name}"
                 );
+
+                // Add empire to the UI list
+                if (EmpiresList.Instance != null)
+                {
+                    EmpiresList.Instance.AddEmpire(empireInstance);
+                }
+                else
+                {
+                    GD.PushWarning(
+                        "EmpireManager: EmpiresList.Instance is null. Cannot add empire to UI list."
+                    );
+                }
 
                 // Add a random improvement to the home star
                 if (_loadedImprovements.Count > 0)
