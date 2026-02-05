@@ -18,6 +18,7 @@ zoom = Vector2(0.5, 0.5)
 MinStarDistanceSquared = 2072.0
 
 [node name="EmpireManager" parent="." instance=ExtResource("3_vy2bj")]
+NumberOfEmpiresToSpawn = 1
 
 [node name="TickManager" parent="." instance=ExtResource("5_gjuov")]
 

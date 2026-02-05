@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="ImprovementResource" load_steps=2 format=3 uid="uid://c5s04vp8slwee"]
+[gd_resource type="Resource" script_class="ImprovementResource" load_steps=2 format=3 uid="uid://bqjklh2ih7q1j"]
 
 [ext_resource type="Script" uid="uid://dlw4b8trmmkgu" path="res://Data/ImprovementResource.cs" id="1_babkj"]
 
@@ -6,7 +6,11 @@
 script = ExtResource("1_babkj")
 ImprovementName = "Farm"
 ImprovementDescription = "A basic farm for producing food"
+BuildTime = 2
 ResourceOutput = Dictionary[int, int]({
 0: 500
+})
+BuildCost = Dictionary[int, int]({
+1: 2000
 })
 metadata/_custom_type_script = "uid://dlw4b8trmmkgu"

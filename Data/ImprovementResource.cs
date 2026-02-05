@@ -20,8 +20,16 @@ public partial class ImprovementResource : Resource
     [Export]
     public string ImprovementDescription { get; set; }
 
+    [Export]
+    public int BuildTime { get; set; }
+
     // Use a Dictionary to store resource outputs
     [Export]
     public Dictionary<ResourceType, int> ResourceOutput { get; set; } =
+        new Dictionary<ResourceType, int>();
+
+    // Use a Dictionary to store build costs
+    [Export]
+    public Dictionary<ResourceType, int> BuildCost { get; set; } =
         new Dictionary<ResourceType, int>();
 }

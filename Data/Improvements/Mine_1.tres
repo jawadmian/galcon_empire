@@ -6,7 +6,11 @@
 script = ExtResource("1_ptdwd")
 ImprovementName = "Basic Mine"
 ImprovementDescription = "Basic mine to produce Ore"
+BuildTime = 3
 ResourceOutput = Dictionary[int, int]({
-1: 500
+1: 2000
+})
+BuildCost = Dictionary[int, int]({
+2: 1000
 })
 metadata/_custom_type_script = "uid://dlw4b8trmmkgu"

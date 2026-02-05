@@ -40,6 +40,8 @@ public partial class EmpireManager : Node
     private List<string> _availableEmpireNames;
     private RandomNumberGenerator _rng = new RandomNumberGenerator();
     private List<ImprovementResource> _loadedImprovements = new List<ImprovementResource>();
+    public IReadOnlyList<ImprovementResource> AvailableImprovements => _loadedImprovements.AsReadOnly();
+    private readonly List<Empire> _spawnedEmpires = new List<Empire>();
 
     public override void _EnterTree()
     {
@@ -98,6 +100,10 @@ public partial class EmpireManager : Node
     private void OnEmpireManagerUpdateTick(int tickCount)
     {
         GD.Print($"Empire Manager updates for tick {tickCount}");
+        foreach (Empire empire in _spawnedEmpires)
+        {
+            empire.UpdateTick(tickCount);
+        }
     }
 
     public override void _ExitTree()
@@ -235,6 +241,8 @@ public partial class EmpireManager : Node
                 }
 
                 AddChild(empireInstance); // Add empire as a child of EmpireManager
+                _spawnedEmpires.Add(empireInstance);
+
                 GD.Print(
                     $"EmpireManager: Spawned '{empireInstance.EmpireName}' (Color: {empireInstance.EmpireColor}) with Home Star: {homeStar.StarName} at {homeStar.GlobalPosition}. Parent: {empireInstance.GetParent()?.Name}"
                 );

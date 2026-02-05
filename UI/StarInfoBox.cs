@@ -1,6 +1,7 @@
 using System;
 using Godot;
 
+//todo: Only one StarInfoBot should be open at a time
 public partial class StarInfoBox : Control
 {
     public override void _Ready()

@@ -1,0 +1,38 @@
+erDiagram
+    Empire ||--o{ Star : "has home system"
+    
+    Star ||--o{ Improvement : "has"
+    Star ||--o{ Empire : "owner"
+    Improvement ||--o{ ResourceProduction : "produces"
+    Improvement ||--o{ ResourceProduction : "consumes"
+    ResourceProduction }o--|| Resource : "of type"
+
+    Empire:::table {
+        int id PK
+        string name
+    }
+
+    Star {
+        int id PK
+        string name
+        int empire_id FK
+    }
+
+    Improvement {
+        int id PK
+        string name
+        string description
+    }
+
+    ResourceProduction {
+        int improvement_id PK,FK
+        int resource_id PK,FK
+        int quantity
+    }
+    
+    Resource {
+        int id PK
+        string name
+    }
+
+    classDef default stroke:#f96
