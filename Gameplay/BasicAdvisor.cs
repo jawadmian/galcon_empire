@@ -13,48 +13,59 @@ public class BasicAdvisor : IAdvisor
         if (_ticksSinceLastRecommendation < _tickCooldown)
             return;
 
-        // 1. Identify resource with lowest production
-        ResourceType lackingResource = ResourceType.Food;
-        long minProduction = long.MaxValue;
-
+        // 1. Sort resources by production (lowest first)
+        List<ResourceType> resourcesByProduction = new List<ResourceType>();
         foreach (ResourceType type in Enum.GetValues(typeof(ResourceType)))
         {
-            if (empire.ProductionPerTick[type] < minProduction)
-            {
-                minProduction = empire.ProductionPerTick[type];
-                lackingResource = type;
-            }
+            resourcesByProduction.Add(type);
         }
+        resourcesByProduction.Sort(
+            (a, b) => empire.ProductionPerTick[a].CompareTo(empire.ProductionPerTick[b])
+        );
 
-        // 2. Find an improvement that produces this resource
-        var availableImprovements = EmpireManager.Instance.AvailableImprovements;
-        ImprovementResource bestImprovement = null;
-        int maxOutput = 0;
+        // 2. Find a star to build on
+        if (empire.OwnedStars.Count == 0)
+            return;
+        Star targetStar = empire.HomeStar ?? empire.OwnedStars[0];
 
-        foreach (var improvement in availableImprovements)
+        // 3. Try to find an improvement for the most lacking resources in order
+        if (EmpireManager.Instance == null)
         {
-            if (improvement.ResourceOutput.TryGetValue(lackingResource, out int output))
+            GD.PrintErr("BasicAdvisor: EmpireManager.Instance is null! Cannot recommend improvements.");
+            return;
+        }
+        var availableImprovements = EmpireManager.Instance.AvailableImprovements;
+
+        foreach (ResourceType lackingResource in resourcesByProduction)
+        {
+            ImprovementResource bestImprovement = null;
+            int maxOutput = 0;
+
+            foreach (var improvement in availableImprovements)
             {
-                if (output > maxOutput)
+                if (improvement.ResourceOutput.TryGetValue(lackingResource, out int output))
                 {
-                    maxOutput = output;
-                    bestImprovement = improvement;
+                    // Check if this improvement is already pending on this star
+                    if (empire.IsImprovementPending(improvement, targetStar))
+                        continue;
+
+                    if (output > maxOutput)
+                    {
+                        maxOutput = output;
+                        bestImprovement = improvement;
+                    }
                 }
             }
-        }
 
-        if (bestImprovement == null)
-            return;
-
-        // 3. Find a star to build it on
-        if (empire.OwnedStars.Count > 0)
-        {
-            Star targetStar = empire.HomeStar ?? empire.OwnedStars[0];
-            GD.Print(
-                $"Advisor recommends {bestImprovement.ImprovementName} for {empire.EmpireName} at {targetStar.StarName} because of low {lackingResource} production."
-            );
-            empire.QueueImprovement(bestImprovement, targetStar);
-            _ticksSinceLastRecommendation = 0;
+            if (bestImprovement != null)
+            {
+                GD.Print(
+                    $"Advisor recommends {bestImprovement.ImprovementName} for {empire.EmpireName} at {targetStar.StarName} because of low {lackingResource} production (and it's not already pending)."
+                );
+                empire.QueueImprovement(bestImprovement, targetStar);
+                _ticksSinceLastRecommendation = 0;
+                return;
+            }
         }
     }
 }

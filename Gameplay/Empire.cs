@@ -130,6 +130,28 @@ public partial class Empire : Node
         );
     }
 
+    public bool IsImprovementPending(ImprovementResource improvement, Star star)
+    {
+        if (improvement == null || star == null)
+            return false;
+
+        // Check build requests
+        foreach (var request in _buildRequests)
+        {
+            if (request.Improvement == improvement && request.TargetStar == star)
+                return true;
+        }
+
+        // Check build queue
+        foreach (var item in _buildQueue)
+        {
+            if (item.Improvement == improvement && item.TargetStar == star)
+                return true;
+        }
+
+        return false;
+    }
+
     public void UpdateTick(int tickCount)
     {
         // 1. Production Logic (Existing)
@@ -141,6 +163,13 @@ public partial class Empire : Node
 
         foreach (Star star in _ownedStars)
         {
+            // Population-based resources: 1 of each per 100 population
+            int popResources = star.StarPopulation / 100;
+            foreach (ResourceType type in Enum.GetValues(typeof(ResourceType)))
+            {
+                tickProduction[type] += popResources;
+            }
+
             foreach (var productionEntry in star.ProductionPerTick)
             {
                 tickProduction[productionEntry.Key] += productionEntry.Value;
