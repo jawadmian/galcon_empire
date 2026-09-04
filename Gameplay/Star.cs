@@ -2,8 +2,14 @@ using System;
 using Godot;
 using Godot.Collections; // Required for Array<T>
 
-public partial class Star : Node2D
+public partial class Star : Node2D, IChronicleEntity
 {
+    // IChronicleEntity implementation
+    public string ChronicleId => $"star:{StarName?.ToLowerInvariant().Replace(' ', '_') ?? Name}";
+    public string ChronicleName => StarName ?? Name;
+    public string ChronicleType => "star";
+    public Vector2? WorldPosition => IsInsideTree() ? GlobalPosition : Position;
+
     private Label _myLabel;
     private string _starName = "Unnamed Star"; // Default name
     private Color _starNameColor = Colors.White; // Default color for the star's name label

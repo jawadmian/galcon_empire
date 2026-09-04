@@ -23,6 +23,7 @@ config/icon="res://icon.svg"
 
 TickManager="*res://Gameplay/Managers/tick_manager.tscn"
 _mcp_game_helper="*res://addons/godot_ai/runtime/game_helper.gd"
+ChronicleManager="*res://Gameplay/Managers/ChronicleManager.cs"
 
 [dotnet]
 

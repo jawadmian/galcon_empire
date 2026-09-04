@@ -2,8 +2,14 @@ using System;
 using System.Collections.Generic;
 using Godot;
 
-public partial class Empire : Node
+public partial class Empire : Node, IChronicleEntity
 {
+    // IChronicleEntity implementation
+    public string ChronicleId => $"empire:{EmpireName?.ToLowerInvariant().Replace(' ', '_') ?? Name}";
+    public string ChronicleName => EmpireName ?? Name;
+    public string ChronicleType => "empire";
+    public Vector2? WorldPosition => HomeStar?.WorldPosition;
+
     private Star _homeStar;
     public Star HomeStar
     {
@@ -56,6 +62,15 @@ public partial class Empire : Node
     private readonly List<BuildRequest> _buildRequests = new List<BuildRequest>();
     private readonly List<BuildQueueItem> _buildQueue = new List<BuildQueueItem>();
     private readonly List<IAdvisor> _advisors = new List<IAdvisor>();
+
+    public Empire()
+    {
+        foreach (ResourceType type in Enum.GetValues(typeof(ResourceType)))
+        {
+            ResourceStockpiles[type] = 0;
+            ProductionPerTick[type] = 0;
+        }
+    }
 
     public override void _Ready()
     {
@@ -118,6 +133,14 @@ public partial class Empire : Node
         GD.Print(
             $"Empire {EmpireName} started construction of {request.Improvement.ImprovementName} at {request.TargetStar.StarName}. Build time: {request.Improvement.BuildTime} ticks."
         );
+
+        ChronicleEvent.Create(EventCategory.Economic, "Construction Commenced")
+            .Involving(this, isPrimary: true)
+            .Involving(request.TargetStar)
+            .WithTemplate("{empire} commenced construction of [b]{improvement}[/b] on {star}.")
+            .WithArg("improvement", request.Improvement.ImprovementName)
+            .WithMetadata("build_time", request.Improvement.BuildTime)
+            .Record();
 
         // Add to build queue
         _buildQueue.Add(
@@ -217,6 +240,14 @@ public partial class Empire : Node
                     $"Empire {EmpireName} completed construction of {item.Improvement.ImprovementName} at {item.TargetStar.StarName}."
                 );
                 item.TargetStar.AddImprovement(item.Improvement);
+
+                ChronicleEvent.Create(EventCategory.Economic, "Facility Completed")
+                    .Involving(this, isPrimary: true)
+                    .Involving(item.TargetStar)
+                    .WithTemplate("{empire} completed construction of [b]{improvement}[/b] on {star}.")
+                    .WithArg("improvement", item.Improvement.ImprovementName)
+                    .Record();
+
                 _buildQueue.RemoveAt(i);
             }
         }
