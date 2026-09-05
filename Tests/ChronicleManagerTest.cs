@@ -286,4 +286,40 @@ public partial class ChronicleManagerTest
         star.Dispose();
         empire.Dispose();
     }
+
+    [TestCase]
+    public void TestResetWorldStateClearsEventsAndResetsId()
+    {
+        _manager.RecordEvent(new ChronicleRecord
+        {
+            Tick = 1,
+            Category = "Economic",
+            Title = "First Event",
+            RawText = "First event of previous game",
+            FormattedBbcode = "First event of previous game",
+            EntityTags = ""
+        });
+
+        AssertThat(_manager.GetEventCount()).IsEqual(1);
+
+        // Reset world state for new game
+        _manager.ResetWorldState();
+
+        AssertThat(_manager.GetEventCount()).IsEqual(0);
+
+        // Record new event in new game - ID should reset back to 1
+        var newEvent = new ChronicleRecord
+        {
+            Tick = 0,
+            Category = "Political",
+            Title = "New Game Founded",
+            RawText = "New Game Founded",
+            FormattedBbcode = "New Game Founded",
+            EntityTags = ""
+        };
+        _manager.RecordEvent(newEvent);
+
+        AssertThat(_manager.GetEventCount()).IsEqual(1);
+        AssertThat(newEvent.Id).IsEqual(1L);
+    }
 }

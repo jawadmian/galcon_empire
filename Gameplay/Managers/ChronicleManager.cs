@@ -23,6 +23,9 @@ public partial class ChronicleManager : Node
     [Export]
     public string DatabasePath { get; set; } = "res://saves/chronicle.db";
 
+    [Export]
+    public bool ResetOnStart { get; set; } = true;
+
     private SqliteConnection _dbConnection;
     private readonly object _dbLock = new object();
 
@@ -40,7 +43,7 @@ public partial class ChronicleManager : Node
 
     public override void _Ready()
     {
-        InitializeDatabase();
+        InitializeDatabase(resetDatabase: ResetOnStart);
     }
 
     public override void _ExitTree()
@@ -54,9 +57,10 @@ public partial class ChronicleManager : Node
 
     /// <summary>
     /// Initializes the SQLite database and executes table schema setup.
-    /// Can be passed a custom connection string (e.g. "Data Source=:memory:") for testing.
+    /// Can be passed a custom connection string (e.g. "Data Source=:memory:") for testing,
+    /// and optionally resets the database for a new game run.
     /// </summary>
-    public void InitializeDatabase(string customConnectionString = null)
+    public void InitializeDatabase(string customConnectionString = null, bool resetDatabase = false)
     {
         lock (_dbLock)
         {
@@ -75,6 +79,23 @@ public partial class ChronicleManager : Node
                 {
                     System.IO.Directory.CreateDirectory(dirPath);
                 }
+
+                if (resetDatabase && System.IO.File.Exists(globalPath))
+                {
+                    try
+                    {
+                        System.IO.File.Delete(globalPath);
+                        string walPath = globalPath + "-wal";
+                        string shmPath = globalPath + "-shm";
+                        if (System.IO.File.Exists(walPath)) System.IO.File.Delete(walPath);
+                        if (System.IO.File.Exists(shmPath)) System.IO.File.Delete(shmPath);
+                    }
+                    catch (Exception ex)
+                    {
+                        GD.PushWarning($"Could not delete old chronicle database file: {ex.Message}");
+                    }
+                }
+
                 connectionString = $"Data Source={globalPath}";
             }
 
@@ -82,6 +103,11 @@ public partial class ChronicleManager : Node
             _dbConnection.Open();
 
             ExecuteSchemaSetup();
+
+            if (resetDatabase)
+            {
+                ClearHistory();
+            }
         }
     }
 
@@ -311,9 +337,20 @@ public partial class ChronicleManager : Node
             }
 
             using var cmd = _dbConnection.CreateCommand();
-            cmd.CommandText = "DELETE FROM chronicle_events;";
+            cmd.CommandText = @"
+                DELETE FROM chronicle_events;
+                DELETE FROM sqlite_sequence WHERE name='chronicle_events';
+            ";
             cmd.ExecuteNonQuery();
         }
+    }
+
+    /// <summary>
+    /// Resets the world state and clears all chronicle events for a new game run.
+    /// </summary>
+    public void ResetWorldState()
+    {
+        ClearHistory();
     }
 
     public void CloseDatabase()
