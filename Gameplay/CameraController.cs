@@ -38,14 +38,25 @@ public partial class CameraController : Camera2D
     [Export]
     public float ZoomSmoothSpeed { get; set; } = 15.0f;
 
+    public static CameraController Instance { get; private set; }
+
     private Vector2 _targetPosition;
     private Vector2 _targetZoom;
     private bool _isDragging = false;
 
     public override void _Ready()
     {
+        Instance = this;
         _targetPosition = Position;
         _targetZoom = Zoom;
+    }
+
+    public override void _ExitTree()
+    {
+        if (Instance == this)
+        {
+            Instance = null;
+        }
     }
 
     public override void _Process(double delta)

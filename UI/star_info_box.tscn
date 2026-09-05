@@ -1,102 +1,278 @@
-[gd_scene load_steps=6 format=3 uid="uid://dj32h2j0os24b"]
+[gd_scene format=3 uid="uid://dj32h2j0os24b"]
 
 [ext_resource type="Script" uid="uid://dmu1pvws0g6e5" path="res://UI/StarInfoBox.cs" id="1_wxefy"]
-[ext_resource type="Texture2D" uid="uid://cwa66l5fs6ufl" path="res://Images/pop.png" id="2_jfuny"]
-[ext_resource type="Texture2D" uid="uid://8mqmstpeswyk" path="res://Images/Food Icon.png" id="2_r2nnw"]
-[ext_resource type="Texture2D" uid="uid://bafjub01iubuc" path="res://Images/Ore Icon.png" id="3_me8b7"]
-[ext_resource type="Texture2D" uid="uid://dpms5cvrr3622" path="res://Images/Money Icon.png" id="4_jfuny"]
+[ext_resource type="Texture2D" uid="uid://c8a5jdadnoh02" path="res://Images/UI/scifi_panel_bg.png" id="2_4j8vd"]
+[ext_resource type="Texture2D" uid="uid://bxaq8mim4wefe" path="res://Images/UI/icon_focus.png" id="3_jvnw7"]
+[ext_resource type="Texture2D" uid="uid://crlmvcxwjmbng" path="res://Images/UI/icon_population.png" id="4_4qnql"]
+[ext_resource type="StyleBox" uid="uid://dy4l4uu600d6a" path="res://UI/Styles/scifi_button_normal.tres" id="4_ic73g"]
+[ext_resource type="Texture2D" uid="uid://bwjn5c7x8xa76" path="res://Images/UI/icon_food.png" id="5_btnxo"]
+[ext_resource type="StyleBox" uid="uid://624rl2q7teiu" path="res://UI/Styles/scifi_button_pressed.tres" id="5_if34v"]
+[ext_resource type="StyleBox" uid="uid://wrh7e3sl5w1p" path="res://UI/Styles/scifi_button_hover.tres" id="6_3vigu"]
+[ext_resource type="Texture2D" uid="uid://n5yebhukmh7r" path="res://Images/UI/icon_ore.png" id="6_ojv3r"]
+[ext_resource type="Texture2D" uid="uid://coodrco7241p2" path="res://Images/UI/icon_credits.png" id="7_ic73g"]
+[ext_resource type="StyleBox" uid="uid://dc8v5lw3tdvl8" path="res://UI/Styles/scifi_close_normal.tres" id="11_i7h0i"]
+[ext_resource type="StyleBox" uid="uid://d01jxn6obyo13" path="res://UI/Styles/scifi_close_hover.tres" id="12_v6b37"]
 
-[node name="StarInfoBox" type="Control"]
+[node name="StarInfoBox" type="Control" unique_id=832931881]
+custom_minimum_size = Vector2(380, 520)
 layout_mode = 3
 anchor_right = 0.306
 anchor_bottom = 0.768
-offset_right = -176.512
-offset_bottom = -250.664
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 47.488007
+offset_bottom = 42.336
 grow_horizontal = 2
 grow_vertical = 2
-scale = Vector2(2, 2)
 script = ExtResource("1_wxefy")
 
-[node name="PanelContainer" type="PanelContainer" parent="."]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -88.0
-offset_top = -123.5
-offset_right = 88.0
-offset_bottom = 45.5
-grow_horizontal = 2
-grow_vertical = 2
+[node name="Background" type="NinePatchRect" parent="." unique_id=1330746329]
+layout_mode = 0
+offset_right = 380.0
+offset_bottom = 520.0
+mouse_filter = 1
+texture = ExtResource("2_4j8vd")
+patch_margin_left = 24
+patch_margin_top = 24
+patch_margin_right = 24
+patch_margin_bottom = 24
+axis_stretch_horizontal = 2
+axis_stretch_vertical = 2
 
-[node name="VBoxContainer" type="VBoxContainer" parent="PanelContainer"]
-layout_mode = 2
-size_flags_vertical = 0
+[node name="ContentMargin" type="MarginContainer" parent="Background" unique_id=1736869124]
+layout_mode = 0
+offset_right = 380.0
+offset_bottom = 520.0
+theme_override_constants/margin_left = 28
+theme_override_constants/margin_top = 44
+theme_override_constants/margin_right = 28
+theme_override_constants/margin_bottom = 28
 
-[node name="NameLabel" type="Label" parent="PanelContainer/VBoxContainer"]
-layout_mode = 2
-
-[node name="PopInfoHBox" type="HBoxContainer" parent="PanelContainer/VBoxContainer"]
-layout_mode = 2
-
-[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/PopInfoHBox"]
-layout_mode = 2
-texture = ExtResource("2_jfuny")
-expand_mode = 2
-
-[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/PopInfoHBox"]
-layout_mode = 2
-text = "10"
-
-[node name="FoodInfoHBox" type="HBoxContainer" parent="PanelContainer/VBoxContainer"]
+[node name="MainVBox" type="VBoxContainer" parent="Background/ContentMargin" unique_id=803470060]
 layout_mode = 2
 
-[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/FoodInfoHBox"]
+[node name="HeaderHBox" type="HBoxContainer" parent="Background/ContentMargin/MainVBox" unique_id=1389450598]
 layout_mode = 2
-texture = ExtResource("2_r2nnw")
-expand_mode = 2
 
-[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/FoodInfoHBox"]
+[node name="StarIcon" type="TextureRect" parent="Background/ContentMargin/MainVBox/HeaderHBox" unique_id=1896124897]
+custom_minimum_size = Vector2(24, 24)
 layout_mode = 2
-tooltip_text = "Amount of Food produced in this star system"
-mouse_filter = 0
-theme_override_colors/font_color = Color(7.21961e-07, 0.449338, 4.81307e-07, 1)
-text = "1000"
+texture = ExtResource("3_jvnw7")
+expand_mode = 1
+stretch_mode = 5
 
-[node name="OreInfoHBox" type="HBoxContainer" parent="PanelContainer/VBoxContainer"]
+[node name="NameLabel" type="Label" parent="Background/ContentMargin/MainVBox/HeaderHBox" unique_id=883448361]
+unique_name_in_owner = true
 layout_mode = 2
-tooltip_text = "Raw materials generated by star system"
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 16
+text = "STAR SYSTEM"
 
-[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/OreInfoHBox"]
+[node name="FocusButton" type="Button" parent="Background/ContentMargin/MainVBox/HeaderHBox" unique_id=1877462259]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(75, 24)
 layout_mode = 2
-texture = ExtResource("3_me8b7")
-expand_mode = 2
+tooltip_text = "Center camera on this star"
+theme_override_colors/font_color = Color(0, 0.8980392, 1, 1)
+theme_override_colors/font_pressed_color = Color(0, 0.8980392, 1, 1)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 11
+theme_override_styles/normal = ExtResource("4_ic73g")
+theme_override_styles/pressed = ExtResource("5_if34v")
+theme_override_styles/hover = ExtResource("6_3vigu")
+theme_override_styles/focus = ExtResource("4_ic73g")
+text = "FOCUS"
+icon = ExtResource("3_jvnw7")
+expand_icon = true
 
-[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/OreInfoHBox"]
+[node name="SubheaderHBox" type="HBoxContainer" parent="Background/ContentMargin/MainVBox" unique_id=749597010]
 layout_mode = 2
-tooltip_text = "Amount of Food produced in this star system"
-mouse_filter = 0
-theme_override_colors/font_color = Color(0.278431, 0.721569, 0.811765, 1)
-text = "1000"
 
-[node name="MoneyInfoHBox" type="HBoxContainer" parent="PanelContainer/VBoxContainer"]
+[node name="CoordsLabel" type="Label" parent="Background/ContentMargin/MainVBox/SubheaderHBox" unique_id=212315971]
+unique_name_in_owner = true
 layout_mode = 2
-tooltip_text = "Income generated by star system"
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0, 0.8980392, 1, 1)
+theme_override_font_sizes/font_size = 11
+text = "SEC: [0, 0]"
 
-[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/MoneyInfoHBox"]
+[node name="TypeLabel" type="Label" parent="Background/ContentMargin/MainVBox/SubheaderHBox" unique_id=739655685]
+unique_name_in_owner = true
 layout_mode = 2
-texture = ExtResource("4_jfuny")
-expand_mode = 2
+theme_override_colors/font_color = Color(0.56078434, 0.6392157, 0.7490196, 1)
+theme_override_font_sizes/font_size = 11
+text = "STAR SYSTEM"
 
-[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/MoneyInfoHBox"]
+[node name="HSeparator1" type="HSeparator" parent="Background/ContentMargin/MainVBox" unique_id=1762957546]
 layout_mode = 2
-tooltip_text = "Amount of Food produced in this star system"
-mouse_filter = 0
-theme_override_colors/font_color = Color(0.988235, 0.854902, 0.317647, 1)
-text = "1000"
 
-[node name="CloseButton" type="Button" parent="PanelContainer/VBoxContainer"]
+[node name="PopVBox" type="VBoxContainer" parent="Background/ContentMargin/MainVBox" unique_id=2008667117]
 layout_mode = 2
-text = "Close"
+
+[node name="PopHeaderHBox" type="HBoxContainer" parent="Background/ContentMargin/MainVBox/PopVBox" unique_id=662608033]
+layout_mode = 2
+
+[node name="PopIcon" type="TextureRect" parent="Background/ContentMargin/MainVBox/PopVBox/PopHeaderHBox" unique_id=1780092297]
+custom_minimum_size = Vector2(20, 20)
+layout_mode = 2
+texture = ExtResource("4_4qnql")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="PopTitle" type="Label" parent="Background/ContentMargin/MainVBox/PopVBox/PopHeaderHBox" unique_id=828147496]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0, 0.8980392, 1, 1)
+theme_override_font_sizes/font_size = 12
+text = "POPULATION"
+
+[node name="PopValueLabel" type="Label" parent="Background/ContentMargin/MainVBox/PopVBox/PopHeaderHBox" unique_id=1608121480]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "0 / 100,000"
+
+[node name="PopProgressBar" type="ProgressBar" parent="Background/ContentMargin/MainVBox/PopVBox" unique_id=340256280]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 10)
+layout_mode = 2
+max_value = 100000.0
+show_percentage = false
+
+[node name="PopGrowthLabel" type="Label" parent="Background/ContentMargin/MainVBox/PopVBox" unique_id=2115470764]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.56078434, 0.6392157, 0.7490196, 1)
+theme_override_font_sizes/font_size = 11
+text = "Growth: +0 / tick (+1.0%)"
+
+[node name="HSeparator2" type="HSeparator" parent="Background/ContentMargin/MainVBox" unique_id=1128835546]
+layout_mode = 2
+
+[node name="ResourceVBox" type="VBoxContainer" parent="Background/ContentMargin/MainVBox" unique_id=1752512907]
+layout_mode = 2
+
+[node name="ResourceSectionTitle" type="Label" parent="Background/ContentMargin/MainVBox/ResourceVBox" unique_id=150096141]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.56078434, 0.6392157, 0.7490196, 1)
+theme_override_font_sizes/font_size = 11
+text = "SYSTEM OUTPUT (PER TICK)"
+
+[node name="FoodHBox" type="HBoxContainer" parent="Background/ContentMargin/MainVBox/ResourceVBox" unique_id=628671938]
+layout_mode = 2
+
+[node name="FoodIcon" type="TextureRect" parent="Background/ContentMargin/MainVBox/ResourceVBox/FoodHBox" unique_id=866027993]
+custom_minimum_size = Vector2(20, 20)
+layout_mode = 2
+texture = ExtResource("5_btnxo")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="FoodTitle" type="Label" parent="Background/ContentMargin/MainVBox/ResourceVBox/FoodHBox" unique_id=392919043]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 12
+text = "Food Production"
+
+[node name="FoodValueLabel" type="Label" parent="Background/ContentMargin/MainVBox/ResourceVBox/FoodHBox" unique_id=662699613]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0.9019608, 0.4627451, 1)
+theme_override_font_sizes/font_size = 12
+text = "+0"
+
+[node name="OreHBox" type="HBoxContainer" parent="Background/ContentMargin/MainVBox/ResourceVBox" unique_id=1620193673]
+layout_mode = 2
+
+[node name="OreIcon" type="TextureRect" parent="Background/ContentMargin/MainVBox/ResourceVBox/OreHBox" unique_id=994471455]
+custom_minimum_size = Vector2(20, 20)
+layout_mode = 2
+texture = ExtResource("6_ojv3r")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="OreTitle" type="Label" parent="Background/ContentMargin/MainVBox/ResourceVBox/OreHBox" unique_id=1347462274]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 12
+text = "Mineral Ore"
+
+[node name="OreValueLabel" type="Label" parent="Background/ContentMargin/MainVBox/ResourceVBox/OreHBox" unique_id=768497874]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0.8980392, 1, 1)
+theme_override_font_sizes/font_size = 12
+text = "+0"
+
+[node name="MoneyHBox" type="HBoxContainer" parent="Background/ContentMargin/MainVBox/ResourceVBox" unique_id=485144893]
+layout_mode = 2
+
+[node name="MoneyIcon" type="TextureRect" parent="Background/ContentMargin/MainVBox/ResourceVBox/MoneyHBox" unique_id=334300157]
+custom_minimum_size = Vector2(20, 20)
+layout_mode = 2
+texture = ExtResource("7_ic73g")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="MoneyTitle" type="Label" parent="Background/ContentMargin/MainVBox/ResourceVBox/MoneyHBox" unique_id=652288043]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 12
+text = "Solar Credits"
+
+[node name="MoneyValueLabel" type="Label" parent="Background/ContentMargin/MainVBox/ResourceVBox/MoneyHBox" unique_id=46700744]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.84313726, 0, 1)
+theme_override_font_sizes/font_size = 12
+text = "+0"
+
+[node name="HSeparator3" type="HSeparator" parent="Background/ContentMargin/MainVBox" unique_id=1232374177]
+layout_mode = 2
+
+[node name="ImprovementsVBox" type="VBoxContainer" parent="Background/ContentMargin/MainVBox" unique_id=1858086149]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ImprovementsTitle" type="Label" parent="Background/ContentMargin/MainVBox/ImprovementsVBox" unique_id=446346095]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.56078434, 0.6392157, 0.7490196, 1)
+theme_override_font_sizes/font_size = 11
+text = "FACILITIES & INFRASTRUCTURE"
+
+[node name="ImprovementsScroll" type="ScrollContainer" parent="Background/ContentMargin/MainVBox/ImprovementsVBox" unique_id=1280366264]
+custom_minimum_size = Vector2(0, 80)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ImprovementsList" type="VBoxContainer" parent="Background/ContentMargin/MainVBox/ImprovementsVBox/ImprovementsScroll" unique_id=1590448932]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="EmptyLabel" type="Label" parent="Background/ContentMargin/MainVBox/ImprovementsVBox/ImprovementsScroll/ImprovementsList" unique_id=49487863]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.33333334, 0.41960785, 0.50980395, 1)
+theme_override_font_sizes/font_size = 11
+text = "• No facilities installed"
+
+[node name="CloseButton" type="Button" parent="." unique_id=270768031]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(24, 24)
+layout_mode = 0
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -36.0
+offset_top = 10.0
+offset_right = -12.0
+offset_bottom = 34.0
+tooltip_text = "Close Star Info"
+theme_override_colors/font_color = Color(0, 0.8980392, 1, 1)
+theme_override_colors/font_pressed_color = Color(1, 0.32156864, 0.32156864, 1)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 13
+theme_override_styles/normal = ExtResource("11_i7h0i")
+theme_override_styles/pressed = ExtResource("12_v6b37")
+theme_override_styles/hover = ExtResource("12_v6b37")
+theme_override_styles/focus = ExtResource("11_i7h0i")
+text = "✕"
