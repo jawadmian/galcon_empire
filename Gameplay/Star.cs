@@ -28,6 +28,9 @@ public partial class Star : Node2D, IChronicleEntity
     [Export]
     public Array<ImprovementResource> Improvements { get; set; } = new Array<ImprovementResource>();
 
+    // Owning empire reference
+    public Empire OwningEmpire { get; set; }
+
     // Public property to set the name label color
     public Color StarNameColor
     {

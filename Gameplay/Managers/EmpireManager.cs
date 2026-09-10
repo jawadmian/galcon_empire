@@ -6,6 +6,7 @@ using Godot;
 public partial class EmpireManager : Node
 {
     private static EmpireManager _instance;
+    public static bool HasInstance => _instance != null;
     public static EmpireManager Instance
     {
         get
@@ -42,6 +43,7 @@ public partial class EmpireManager : Node
     private List<ImprovementResource> _loadedImprovements = new List<ImprovementResource>();
     public IReadOnlyList<ImprovementResource> AvailableImprovements => _loadedImprovements.AsReadOnly();
     private readonly List<Empire> _spawnedEmpires = new List<Empire>();
+    public IReadOnlyList<Empire> SpawnedEmpires => _spawnedEmpires.AsReadOnly();
 
     public override void _EnterTree()
     {
@@ -93,13 +95,11 @@ public partial class EmpireManager : Node
 
     private void OnTickManagerReady()
     {
-        GD.Print("EmpireManager: TickManager is ready.");
         TickManager.Instance.TickUpdateSignal += OnEmpireManagerUpdateTick;
     }
 
     private void OnEmpireManagerUpdateTick(int tickCount)
     {
-        GD.Print($"Empire Manager updates for tick {tickCount}");
         foreach (Empire empire in _spawnedEmpires)
         {
             empire.UpdateTick(tickCount);

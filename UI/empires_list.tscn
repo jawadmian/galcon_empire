@@ -1,29 +1,72 @@
-[gd_scene load_steps=2 format=3 uid="uid://c7t4t6mruf4is"]
+[gd_scene format=3 uid="uid://c7t4t6mruf4is"]
 
 [ext_resource type="Script" uid="uid://hyhvrtgwcbyj" path="res://UI/EmpiresList.cs" id="1_5uahr"]
+[ext_resource type="Texture2D" uid="uid://c8a5jdadnoh02" path="res://Images/UI/scifi_panel_bg.png" id="2_717kw"]
 
-[node name="EmpireInfo" type="Control"]
+[node name="EmpireInfo" type="Control" unique_id=216250483]
+custom_minimum_size = Vector2(240, 320)
 layout_mode = 3
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-script = ExtResource("1_5uahr")
-
-[node name="PanelContainer" type="PanelContainer" parent="."]
-layout_mode = 1
-anchors_preset = 11
+anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -198.0
+offset_left = -260.0
+offset_top = 20.0
+offset_right = -20.0
+offset_bottom = 340.0
 grow_horizontal = 0
-grow_vertical = 2
+mouse_filter = 1
+script = ExtResource("1_5uahr")
 
-[node name="VBoxContainer" type="VBoxContainer" parent="PanelContainer"]
+[node name="Background" type="NinePatchRect" parent="." unique_id=67981723]
+layout_mode = 0
+offset_right = 240.0
+offset_bottom = 320.0
+mouse_filter = 1
+texture = ExtResource("2_717kw")
+patch_margin_left = 24
+patch_margin_top = 24
+patch_margin_right = 24
+patch_margin_bottom = 24
+axis_stretch_horizontal = 2
+axis_stretch_vertical = 2
+
+[node name="ContentMargin" type="MarginContainer" parent="Background" unique_id=1313239447]
+layout_mode = 0
+offset_right = 240.0
+offset_bottom = 320.0
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="MainVBox" type="VBoxContainer" parent="Background/ContentMargin" unique_id=2008009329]
 layout_mode = 2
 
-[node name="DayLabel" type="Label" parent="PanelContainer/VBoxContainer"]
+[node name="HeaderHBox" type="HBoxContainer" parent="Background/ContentMargin/MainVBox" unique_id=665845857]
 layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="Background/ContentMargin/MainVBox/HeaderHBox" unique_id=1656962979]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0, 0.8980392, 1, 1)
+theme_override_font_sizes/font_size = 12
+text = "GALACTIC POWERS"
+
+[node name="DayLabel" type="Label" parent="Background/ContentMargin/MainVBox/HeaderHBox" unique_id=339378320]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.56078434, 0.6392157, 0.7490196, 1)
+theme_override_font_sizes/font_size = 11
 text = "Day: 0"
+
+[node name="HSeparator" type="HSeparator" parent="Background/ContentMargin/MainVBox" unique_id=358337270]
+layout_mode = 2
+
+[node name="EmpiresScroll" type="ScrollContainer" parent="Background/ContentMargin/MainVBox" unique_id=2091630797]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="EmpiresContainer" type="VBoxContainer" parent="Background/ContentMargin/MainVBox/EmpiresScroll" unique_id=209494304]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3

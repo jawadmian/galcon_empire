@@ -22,6 +22,8 @@ public partial class StarInfoBox : Control
     private Label _moneyValueLabel;
 
     private VBoxContainer _improvementsList;
+    private int _lastImprovementsCount = -1;
+    private int _lastActiveConstructionCount = -1;
 
     // Window dragging
     private bool _isDraggingWindow = false;
@@ -39,6 +41,11 @@ public partial class StarInfoBox : Control
         if (Instance == this)
         {
             Instance = null;
+        }
+
+        if (TickManager.HasInstance)
+        {
+            TickManager.Instance.TickUpdateSignal -= OnTickUpdate;
         }
     }
 
@@ -69,6 +76,11 @@ public partial class StarInfoBox : Control
         if (_focusButton != null)
         {
             _focusButton.Pressed += OnFocusButtonPressed;
+        }
+
+        if (TickManager.HasInstance)
+        {
+            TickManager.Instance.TickUpdateSignal += OnTickUpdate;
         }
 
         if (_currentStar != null)
@@ -105,6 +117,22 @@ public partial class StarInfoBox : Control
         if (_currentStar != null && GodotObject.IsInstanceValid(_currentStar))
         {
             UpdateRealtimeMetrics();
+
+            int curImpCount = _currentStar.Improvements?.Count ?? 0;
+            int curProjCount = GetActiveProjectsForStar(_currentStar).Count;
+            if (curImpCount != _lastImprovementsCount || curProjCount != _lastActiveConstructionCount)
+            {
+                PopulateImprovements();
+            }
+        }
+    }
+
+    private void OnTickUpdate(int tick)
+    {
+        if (_currentStar != null && GodotObject.IsInstanceValid(_currentStar))
+        {
+            UpdateRealtimeMetrics();
+            PopulateImprovements();
         }
     }
 
@@ -135,14 +163,17 @@ public partial class StarInfoBox : Control
         }
 
         // Prefer adding to an active CanvasLayer so the HUD doesn't translate with the camera
-        CanvasLayer canvasLayer = contextNode?.GetTree()?.Root?.FindChild("CanvasLayer", true, false) as CanvasLayer;
-        if (canvasLayer != null)
+        if (contextNode != null && contextNode.IsInsideTree())
         {
-            canvasLayer.AddChild(infoBox);
-        }
-        else
-        {
-            contextNode?.GetTree()?.Root?.AddChild(infoBox);
+            CanvasLayer canvasLayer = contextNode.GetTree()?.Root?.FindChild("CanvasLayer", true, false) as CanvasLayer;
+            if (canvasLayer != null)
+            {
+                canvasLayer.AddChild(infoBox);
+            }
+            else
+            {
+                contextNode.GetTree()?.Root?.AddChild(infoBox);
+            }
         }
 
         infoBox.DisplayStar(star);
@@ -155,6 +186,8 @@ public partial class StarInfoBox : Control
     public void DisplayStar(Star star)
     {
         _currentStar = star;
+        _lastImprovementsCount = -1;
+        _lastActiveConstructionCount = -1;
         if (IsNodeReady() || _nameLabel != null)
         {
             RefreshDisplay();
@@ -241,18 +274,85 @@ public partial class StarInfoBox : Control
 
     private void PopulateImprovements()
     {
-        if (_improvementsList == null)
+        if (_improvementsList == null || _currentStar == null || !GodotObject.IsInstanceValid(_currentStar))
         {
             return;
         }
 
+        _lastImprovementsCount = _currentStar.Improvements?.Count ?? 0;
+        var activeProjects = GetActiveProjectsForStar(_currentStar);
+        _lastActiveConstructionCount = activeProjects.Count;
+
         // Remove old children
         foreach (Node child in _improvementsList.GetChildren())
         {
+            _improvementsList.RemoveChild(child);
             child.QueueFree();
         }
 
-        if (_currentStar.Improvements == null || _currentStar.Improvements.Count == 0)
+        bool hasItems = false;
+
+        // 1. Installed Facilities
+        if (_currentStar.Improvements != null)
+        {
+            foreach (ImprovementResource imp in _currentStar.Improvements)
+            {
+                if (imp == null) continue;
+                hasItems = true;
+
+                var itemHBox = new HBoxContainer();
+
+                var label = new Label
+                {
+                    Text = $"• {imp.ImprovementName}",
+                    SizeFlagsHorizontal = SizeFlags.ExpandFill
+                };
+                label.AddThemeFontSizeOverride("font_size", 12);
+                label.AddThemeColorOverride("font_color", new Color("00e5ff"));
+                itemHBox.AddChild(label);
+
+                // Show primary output badge if available
+                string outputSummary = GetOutputSummary(imp);
+                if (!string.IsNullOrEmpty(outputSummary))
+                {
+                    var outputLabel = new Label
+                    {
+                        Text = outputSummary
+                    };
+                    outputLabel.AddThemeFontSizeOverride("font_size", 11);
+                    outputLabel.AddThemeColorOverride("font_color", new Color("8fa3bf"));
+                    itemHBox.AddChild(outputLabel);
+                }
+
+                _improvementsList.AddChild(itemHBox);
+            }
+        }
+
+        // 2. Ongoing Construction Projects on this star
+        if (activeProjects.Count > 0)
+        {
+            foreach (var proj in activeProjects)
+            {
+                if (proj.Improvement == null) continue;
+                hasItems = true;
+
+                var itemHBox = new HBoxContainer();
+
+                string statusText = proj.IsUnderConstruction ? $"{proj.RemainingTicks}t left" : "Pending Funds";
+                var label = new Label
+                {
+                    Text = $"🔨 {proj.Improvement.ImprovementName} [{statusText}]",
+                    SizeFlagsHorizontal = SizeFlags.ExpandFill
+                };
+                label.AddThemeFontSizeOverride("font_size", 11);
+                label.AddThemeColorOverride("font_color", proj.IsUnderConstruction ? new Color("ffd700") : new Color("ff9800"));
+                itemHBox.AddChild(label);
+
+                _improvementsList.AddChild(itemHBox);
+            }
+        }
+
+        if (!hasItems)
         {
             var emptyLabel = new Label
             {
@@ -261,27 +361,60 @@ public partial class StarInfoBox : Control
             emptyLabel.AddThemeFontSizeOverride("font_size", 11);
             emptyLabel.AddThemeColorOverride("font_color", new Color("556b82"));
             _improvementsList.AddChild(emptyLabel);
-            return;
         }
+    }
 
-        foreach (ImprovementResource imp in _currentStar.Improvements)
+    private System.Collections.Generic.List<Empire.ConstructionDisplayInfo> GetActiveProjectsForStar(Star star)
+    {
+        var result = new System.Collections.Generic.List<Empire.ConstructionDisplayInfo>();
+        if (star == null) return result;
+
+        if (star.OwningEmpire != null && GodotObject.IsInstanceValid(star.OwningEmpire))
         {
-            if (imp == null) continue;
-
-            var itemHBox = new HBoxContainer();
-
-            string desc = imp.ImprovementName;
-            var label = new Label
+            foreach (var proj in star.OwningEmpire.GetActiveConstructionProjects())
             {
-                Text = $"• {desc}",
-                SizeFlagsHorizontal = SizeFlags.ExpandFill
-            };
-            label.AddThemeFontSizeOverride("font_size", 12);
-            label.AddThemeColorOverride("font_color", new Color("00e5ff"));
-            itemHBox.AddChild(label);
-
-            _improvementsList.AddChild(itemHBox);
+                if (proj.TargetStar == star)
+                {
+                    result.Add(proj);
+                }
+            }
+            return result;
         }
+
+        if (EmpireManager.HasInstance && EmpireManager.Instance.SpawnedEmpires != null)
+        {
+            foreach (var emp in EmpireManager.Instance.SpawnedEmpires)
+            {
+                if (emp != null && GodotObject.IsInstanceValid(emp))
+                {
+                    foreach (var proj in emp.GetActiveConstructionProjects())
+                    {
+                        if (proj.TargetStar == star)
+                        {
+                            result.Add(proj);
+                        }
+                    }
+                }
+            }
+        }
+
+        return result;
+    }
+
+    private string GetOutputSummary(ImprovementResource imp)
+    {
+        if (imp.ResourceOutput == null || imp.ResourceOutput.Count == 0)
+            return string.Empty;
+
+        var parts = new System.Collections.Generic.List<string>();
+        foreach (var (resType, val) in imp.ResourceOutput)
+        {
+            if (val > 0)
+            {
+                parts.Add($"+{val} {resType}");
+            }
+        }
+        return string.Join(", ", parts);
     }
 
     private void OnFocusButtonPressed()

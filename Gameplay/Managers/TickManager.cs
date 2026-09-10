@@ -5,6 +5,7 @@ using Godot;
 public partial class TickManager : Node
 {
     private static TickManager _instance;
+    public static bool HasInstance => _instance != null;
     public static TickManager Instance
     {
         get

@@ -1,14 +1,9 @@
 using System;
-using System.Collections.Generic; // Required for Dictionary
+using System.Collections.Generic;
 using Godot;
 
 public partial class EmpiresList : Control
 {
-    // Path to the VBoxContainer node where empire labels will be added.
-    // As per the request, this is "PanelContainer/VBoxContainer".
-    private const string VBoxContainerPath = "PanelContainer/VBoxContainer";
-    private const string DayLabelPath = "PanelContainer/VBoxContainer/DayLabel";
-
     private static EmpiresList _instance;
     public static EmpiresList Instance
     {
@@ -25,9 +20,9 @@ public partial class EmpiresList : Control
         private set => _instance = value;
     }
 
-    private VBoxContainer _vboxContainer;
+    private VBoxContainer _empiresContainer;
     private Label _dayLabel;
-    private readonly Dictionary<Empire, Label> _empireLabels = new Dictionary<Empire, Label>();
+    private readonly Dictionary<Empire, Button> _empireButtons = new Dictionary<Empire, Button>();
 
     public override void _Ready()
     {
@@ -36,25 +31,28 @@ public partial class EmpiresList : Control
             GD.PushWarning(
                 $"Duplicate EmpiresList instance detected. Old: {_instance.GetPath()}, New: {GetPath()}. Destroying new instance."
             );
-            QueueFree(); // Remove the duplicate
+            QueueFree();
             return;
         }
         _instance = this;
 
-        _vboxContainer = GetNodeOrNull<VBoxContainer>(VBoxContainerPath);
-        if (_vboxContainer == null)
+        // Cache node references using Scene Unique Names (%NodeName) with fallback to legacy paths
+        _empiresContainer = GetNodeOrNull<VBoxContainer>("%EmpiresContainer")
+            ?? GetNodeOrNull<VBoxContainer>("PanelContainer/VBoxContainer")
+            ?? GetNodeOrNull<VBoxContainer>("Background/ContentMargin/MainVBox/EmpiresScroll/EmpiresContainer");
+
+        if (_empiresContainer == null)
         {
-            GD.PushError(
-                $"EmpiresList: VBoxContainer not found at path '{VBoxContainerPath}'. UI will not function correctly."
-            );
+            GD.PushError("EmpiresList: EmpiresContainer not found. UI will not function correctly.");
         }
 
-        _dayLabel = GetNodeOrNull<Label>(DayLabelPath);
+        _dayLabel = GetNodeOrNull<Label>("%DayLabel")
+            ?? GetNodeOrNull<Label>("PanelContainer/VBoxContainer/DayLabel")
+            ?? GetNodeOrNull<Label>("Background/ContentMargin/MainVBox/HeaderHBox/DayLabel");
+
         if (_dayLabel == null)
         {
-            GD.PushError(
-                $"EmpiresList: DayLabel not found at path '{DayLabelPath}'. Day count will not be displayed."
-            );
+            GD.PushError("EmpiresList: DayLabel not found. Day count will not be displayed.");
         }
 
         // Connect to the TickManager's signal
@@ -64,24 +62,20 @@ public partial class EmpiresList : Control
         }
         else
         {
-            GD.PushWarning(
-                "EmpiresList: TickManager.Instance is null. Cannot connect to TickUpdateSignal."
-            );
+            GD.PushWarning("EmpiresList: TickManager.Instance is null. Cannot connect to TickUpdateSignal.");
         }
     }
 
     /// <summary>
-    /// Adds a new Label representing the empire to the list.
-    /// If a label for this empire already exists, it will be removed and a new one created.
+    /// Adds a new interactive Button representing the empire to the list.
+    /// Clicking the button opens the EmpireInfoBox dossier.
     /// </summary>
     /// <param name="empire">The Empire to add.</param>
     public void AddEmpire(Empire empire)
     {
-        if (_vboxContainer == null)
+        if (_empiresContainer == null)
         {
-            GD.PushWarning(
-                "EmpiresList: VBoxContainer is not initialized. Cannot add empire label."
-            );
+            GD.PushWarning("EmpiresList: EmpiresContainer is not initialized. Cannot add empire.");
             return;
         }
         if (empire == null)
@@ -90,37 +84,71 @@ public partial class EmpiresList : Control
             return;
         }
 
-        // If a label for this empire already exists, remove the old one first.
-        if (_empireLabels.TryGetValue(empire, out Label existingLabel))
+        // If a button for this empire already exists, remove the old one first.
+        if (_empireButtons.TryGetValue(empire, out Button existingBtn))
         {
-            existingLabel.QueueFree();
-            _empireLabels.Remove(empire);
+            existingBtn.QueueFree();
+            _empireButtons.Remove(empire);
         }
 
-        Label empireLabel = new Label();
-        empireLabel.Text = empire.EmpireName ?? "Unnamed Empire"; // Use empire's name
-        empireLabel.SelfModulate = empire.EmpireColor; // Use empire's color
+        int starCount = empire.OwnedStars?.Count ?? 0;
+        string name = empire.EmpireName ?? "Unnamed Empire";
 
-        _vboxContainer.AddChild(empireLabel);
-        _empireLabels[empire] = empireLabel; // Store the reference for easy removal
+        Button empireBtn = new Button
+        {
+            Text = $"★ {name} [{starCount}]",
+            Alignment = HorizontalAlignment.Left,
+            CustomMinimumSize = new Vector2(0, 26),
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            TooltipText = $"Click to view {name} dossier"
+        };
+
+        empireBtn.AddThemeFontSizeOverride("font_size", 11);
+        empireBtn.AddThemeColorOverride("font_color", empire.EmpireColor);
+        empireBtn.AddThemeColorOverride("font_hover_color", Colors.White);
+        empireBtn.AddThemeColorOverride("font_pressed_color", empire.EmpireColor);
+
+        // Load sci-fi button styles
+        var normalStyle = GD.Load<StyleBox>("res://UI/Styles/scifi_button_normal.tres");
+        var hoverStyle = GD.Load<StyleBox>("res://UI/Styles/scifi_button_hover.tres");
+        var pressedStyle = GD.Load<StyleBox>("res://UI/Styles/scifi_button_pressed.tres");
+
+        if (normalStyle != null) empireBtn.AddThemeStyleboxOverride("normal", normalStyle);
+        if (hoverStyle != null) empireBtn.AddThemeStyleboxOverride("hover", hoverStyle);
+        if (pressedStyle != null) empireBtn.AddThemeStyleboxOverride("pressed", pressedStyle);
+        if (normalStyle != null) empireBtn.AddThemeStyleboxOverride("focus", normalStyle);
+
+        Empire capturedEmpire = empire;
+        empireBtn.Pressed += () => OnEmpireClicked(capturedEmpire);
+
+        _empiresContainer.AddChild(empireBtn);
+        _empireButtons[empire] = empireBtn;
     }
 
     /// <summary>
-    /// Removes the Label associated with the given empire from the list.
+    /// Removes the Button associated with the given empire from the list.
     /// </summary>
     /// <param name="empire">The Empire to remove.</param>
     public void RemoveEmpire(Empire empire)
     {
-        if (empire != null && _empireLabels.TryGetValue(empire, out Label labelToRemove))
+        if (empire != null && _empireButtons.TryGetValue(empire, out Button btnToRemove))
         {
-            labelToRemove.QueueFree();
-            _empireLabels.Remove(empire);
+            btnToRemove.QueueFree();
+            _empireButtons.Remove(empire);
+        }
+    }
+
+    private void OnEmpireClicked(Empire empire)
+    {
+        if (empire != null && GodotObject.IsInstanceValid(empire))
+        {
+            EmpireInfoBox.OpenForEmpire(empire, this);
         }
     }
 
     /// <summary>
     /// Called when the TickManager emits the TickUpdateSignal.
-    /// Updates the day label with the current tick count.
+    /// Updates the day label and empire star counts.
     /// </summary>
     /// <param name="tickCount">The current tick count from TickManager.</param>
     private void OnTickUpdate(int tickCount)
@@ -128,6 +156,17 @@ public partial class EmpiresList : Control
         if (_dayLabel != null)
         {
             _dayLabel.Text = $"Day: {tickCount}";
+        }
+
+        // Update star count badges on each empire button
+        foreach (var (empire, btn) in _empireButtons)
+        {
+            if (empire != null && GodotObject.IsInstanceValid(empire) && btn != null && GodotObject.IsInstanceValid(btn))
+            {
+                int starCount = empire.OwnedStars?.Count ?? 0;
+                string name = empire.EmpireName ?? "Unnamed Empire";
+                btn.Text = $"★ {name} [{starCount}]";
+            }
         }
     }
 

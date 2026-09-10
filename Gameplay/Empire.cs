@@ -26,8 +26,7 @@ public partial class Empire : Node, IChronicleEntity
             if (_homeStar != null && !_ownedStars.Contains(_homeStar))
             {
                 _ownedStars.Add(_homeStar);
-                // Potentially assign this empire to the star as well
-                // _homeStar.Owner = this;
+                _homeStar.OwningEmpire = this;
             }
         }
     }
@@ -36,6 +35,27 @@ public partial class Empire : Node, IChronicleEntity
 
     private readonly List<Star> _ownedStars = new List<Star>();
     public IReadOnlyList<Star> OwnedStars => _ownedStars.AsReadOnly();
+
+    public void AddStar(Star star)
+    {
+        if (star != null && !_ownedStars.Contains(star))
+        {
+            _ownedStars.Add(star);
+            star.OwningEmpire = this;
+        }
+    }
+
+    public void RemoveStar(Star star)
+    {
+        if (star != null)
+        {
+            _ownedStars.Remove(star);
+            if (star.OwningEmpire == this)
+            {
+                star.OwningEmpire = null;
+            }
+        }
+    }
 
     // Stockpile of resources for the empire
     public Dictionary<ResourceType, long> ResourceStockpiles { get; private set; } =
@@ -46,22 +66,65 @@ public partial class Empire : Node, IChronicleEntity
         new Dictionary<ResourceType, long>();
 
     // Classes to manage the build system
-    private class BuildRequest
+    public class BuildRequest
     {
         public ImprovementResource Improvement { get; set; }
         public Star TargetStar { get; set; }
     }
 
-    private class BuildQueueItem
+    public class BuildQueueItem
     {
         public ImprovementResource Improvement { get; set; }
         public Star TargetStar { get; set; }
         public int RemainingTicks { get; set; }
     }
 
+    public class ConstructionDisplayInfo
+    {
+        public ImprovementResource Improvement { get; set; }
+        public Star TargetStar { get; set; }
+        public int RemainingTicks { get; set; }
+        public int TotalTicks { get; set; }
+        public bool IsUnderConstruction { get; set; }
+    }
+
     private readonly List<BuildRequest> _buildRequests = new List<BuildRequest>();
     private readonly List<BuildQueueItem> _buildQueue = new List<BuildQueueItem>();
     private readonly List<IAdvisor> _advisors = new List<IAdvisor>();
+
+    public IReadOnlyList<BuildRequest> BuildRequests => _buildRequests.AsReadOnly();
+    public IReadOnlyList<BuildQueueItem> BuildQueue => _buildQueue.AsReadOnly();
+
+    /// <summary>
+    /// Returns all active construction projects and pending build requests for UI display.
+    /// </summary>
+    public List<ConstructionDisplayInfo> GetActiveConstructionProjects()
+    {
+        var list = new List<ConstructionDisplayInfo>();
+        foreach (var item in _buildQueue)
+        {
+            list.Add(new ConstructionDisplayInfo
+            {
+                Improvement = item.Improvement,
+                TargetStar = item.TargetStar,
+                RemainingTicks = item.RemainingTicks,
+                TotalTicks = item.Improvement?.BuildTime ?? item.RemainingTicks,
+                IsUnderConstruction = true
+            });
+        }
+        foreach (var req in _buildRequests)
+        {
+            list.Add(new ConstructionDisplayInfo
+            {
+                Improvement = req.Improvement,
+                TargetStar = req.TargetStar,
+                RemainingTicks = req.Improvement?.BuildTime ?? 0,
+                TotalTicks = req.Improvement?.BuildTime ?? 0,
+                IsUnderConstruction = false
+            });
+        }
+        return list;
+    }
 
     public Empire()
     {
@@ -203,12 +266,6 @@ public partial class Empire : Node, IChronicleEntity
         {
             ResourceStockpiles[productionEntry.Key] += productionEntry.Value;
             ProductionPerTick[productionEntry.Key] = productionEntry.Value;
-            if (productionEntry.Value > 0)
-            {
-                GD.Print(
-                    $"Empire {EmpireName} {productionEntry.Key} updated by {productionEntry.Value}, new total: {ResourceStockpiles[productionEntry.Key]}"
-                );
-            }
         }
 
         // 2. Advisor Recommendations

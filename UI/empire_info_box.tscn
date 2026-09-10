@@ -1,0 +1,266 @@
+[gd_scene format=3 uid="uid://bc0khw4u20cec"]
+
+[ext_resource type="Script" path="res://UI/EmpireInfoBox.cs" id="1_scgv5"]
+[ext_resource type="Texture2D" uid="uid://c8a5jdadnoh02" path="res://Images/UI/scifi_panel_bg.png" id="2_0n3uf"]
+[ext_resource type="Texture2D" uid="uid://bxaq8mim4wefe" path="res://Images/UI/icon_focus.png" id="3_fmspo"]
+[ext_resource type="StyleBox" uid="uid://dy4l4uu600d6a" path="res://UI/Styles/scifi_button_normal.tres" id="4_r7eji"]
+[ext_resource type="StyleBox" uid="uid://624rl2q7teiu" path="res://UI/Styles/scifi_button_pressed.tres" id="5_ixw0a"]
+[ext_resource type="StyleBox" uid="uid://wrh7e3sl5w1p" path="res://UI/Styles/scifi_button_hover.tres" id="6_h40h2"]
+[ext_resource type="Texture2D" uid="uid://crlmvcxwjmbng" path="res://Images/UI/icon_population.png" id="7_rqyef"]
+[ext_resource type="Texture2D" uid="uid://bwjn5c7x8xa76" path="res://Images/UI/icon_food.png" id="8_a6htf"]
+[ext_resource type="Texture2D" uid="uid://n5yebhukmh7r" path="res://Images/UI/icon_ore.png" id="9_xql4m"]
+[ext_resource type="Texture2D" uid="uid://coodrco7241p2" path="res://Images/UI/icon_credits.png" id="10_dkbjr"]
+[ext_resource type="StyleBox" uid="uid://dc8v5lw3tdvl8" path="res://UI/Styles/scifi_close_normal.tres" id="11_un2m0"]
+[ext_resource type="StyleBox" uid="uid://d01jxn6obyo13" path="res://UI/Styles/scifi_close_hover.tres" id="12_bg4f3"]
+
+[node name="EmpireInfoBox" type="Control" unique_id=852999418]
+custom_minimum_size = Vector2(380, 540)
+layout_mode = 3
+anchors_preset = 0
+script = ExtResource("1_scgv5")
+
+[node name="Background" type="NinePatchRect" parent="." unique_id=1572416658]
+layout_mode = 0
+offset_right = 380.0
+offset_bottom = 540.0
+mouse_filter = 1
+texture = ExtResource("2_0n3uf")
+patch_margin_left = 24
+patch_margin_top = 24
+patch_margin_right = 24
+patch_margin_bottom = 24
+axis_stretch_horizontal = 2
+axis_stretch_vertical = 2
+
+[node name="ContentMargin" type="MarginContainer" parent="Background" unique_id=384870030]
+layout_mode = 0
+offset_right = 380.0
+offset_bottom = 540.0
+theme_override_constants/margin_left = 28
+theme_override_constants/margin_top = 44
+theme_override_constants/margin_right = 28
+theme_override_constants/margin_bottom = 28
+
+[node name="MainVBox" type="VBoxContainer" parent="Background/ContentMargin" unique_id=493484113]
+layout_mode = 2
+
+[node name="HeaderHBox" type="HBoxContainer" parent="Background/ContentMargin/MainVBox" unique_id=189768614]
+layout_mode = 2
+
+[node name="EmpireIcon" type="TextureRect" parent="Background/ContentMargin/MainVBox/HeaderHBox" unique_id=449598204]
+custom_minimum_size = Vector2(24, 24)
+layout_mode = 2
+texture = ExtResource("3_fmspo")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="NameLabel" type="Label" parent="Background/ContentMargin/MainVBox/HeaderHBox" unique_id=1557788872]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 16
+text = "EMPIRE DOSSIER"
+
+[node name="FocusCapitalButton" type="Button" parent="Background/ContentMargin/MainVBox/HeaderHBox" unique_id=952678239]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(75, 24)
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0.8980392, 1, 1)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 11
+theme_override_styles/normal = ExtResource("4_r7eji")
+theme_override_styles/pressed = ExtResource("5_ixw0a")
+theme_override_styles/hover = ExtResource("6_h40h2")
+theme_override_styles/focus = ExtResource("4_r7eji")
+text = "CAPITAL"
+icon = ExtResource("3_fmspo")
+expand_icon = true
+
+[node name="SubheaderHBox" type="HBoxContainer" parent="Background/ContentMargin/MainVBox" unique_id=1329539141]
+layout_mode = 2
+
+[node name="CapitalLabel" type="Label" parent="Background/ContentMargin/MainVBox/SubheaderHBox" unique_id=1361912646]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0, 0.8980392, 1, 1)
+theme_override_font_sizes/font_size = 11
+text = "CAPITAL: NONE"
+
+[node name="TerritoryLabel" type="Label" parent="Background/ContentMargin/MainVBox/SubheaderHBox" unique_id=185226204]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.56078434, 0.6392157, 0.7490196, 1)
+theme_override_font_sizes/font_size = 11
+text = "TERRITORY: 0 SYSTEMS"
+
+[node name="HSeparator1" type="HSeparator" parent="Background/ContentMargin/MainVBox" unique_id=848141194]
+layout_mode = 2
+
+[node name="PopVBox" type="VBoxContainer" parent="Background/ContentMargin/MainVBox" unique_id=1357997020]
+layout_mode = 2
+
+[node name="PopHeaderHBox" type="HBoxContainer" parent="Background/ContentMargin/MainVBox/PopVBox" unique_id=1005343763]
+layout_mode = 2
+
+[node name="PopIcon" type="TextureRect" parent="Background/ContentMargin/MainVBox/PopVBox/PopHeaderHBox" unique_id=1503427340]
+custom_minimum_size = Vector2(20, 20)
+layout_mode = 2
+texture = ExtResource("7_rqyef")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="PopTitle" type="Label" parent="Background/ContentMargin/MainVBox/PopVBox/PopHeaderHBox" unique_id=780729143]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0, 0.8980392, 1, 1)
+theme_override_font_sizes/font_size = 12
+text = "CITIZEN POPULATION"
+
+[node name="PopValueLabel" type="Label" parent="Background/ContentMargin/MainVBox/PopVBox/PopHeaderHBox" unique_id=2034700681]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "0 citizens"
+
+[node name="HSeparator2" type="HSeparator" parent="Background/ContentMargin/MainVBox" unique_id=883063215]
+layout_mode = 2
+
+[node name="EconomyVBox" type="VBoxContainer" parent="Background/ContentMargin/MainVBox" unique_id=119702587]
+layout_mode = 2
+
+[node name="EconomyTitle" type="Label" parent="Background/ContentMargin/MainVBox/EconomyVBox" unique_id=1077225592]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.56078434, 0.6392157, 0.7490196, 1)
+theme_override_font_sizes/font_size = 11
+text = "TREASURY & PRODUCTION"
+
+[node name="FoodHBox" type="HBoxContainer" parent="Background/ContentMargin/MainVBox/EconomyVBox" unique_id=280349037]
+layout_mode = 2
+
+[node name="FoodIcon" type="TextureRect" parent="Background/ContentMargin/MainVBox/EconomyVBox/FoodHBox" unique_id=1764227428]
+custom_minimum_size = Vector2(20, 20)
+layout_mode = 2
+texture = ExtResource("8_a6htf")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="FoodTitle" type="Label" parent="Background/ContentMargin/MainVBox/EconomyVBox/FoodHBox" unique_id=1990845091]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 12
+text = "Food Reserves"
+
+[node name="FoodValueLabel" type="Label" parent="Background/ContentMargin/MainVBox/EconomyVBox/FoodHBox" unique_id=526389911]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0.9019608, 0.4627451, 1)
+theme_override_font_sizes/font_size = 12
+text = "0 (+0/t)"
+
+[node name="OreHBox" type="HBoxContainer" parent="Background/ContentMargin/MainVBox/EconomyVBox" unique_id=1113181507]
+layout_mode = 2
+
+[node name="OreIcon" type="TextureRect" parent="Background/ContentMargin/MainVBox/EconomyVBox/OreHBox" unique_id=135957591]
+custom_minimum_size = Vector2(20, 20)
+layout_mode = 2
+texture = ExtResource("9_xql4m")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="OreTitle" type="Label" parent="Background/ContentMargin/MainVBox/EconomyVBox/OreHBox" unique_id=1128951565]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 12
+text = "Mineral Ore"
+
+[node name="OreValueLabel" type="Label" parent="Background/ContentMargin/MainVBox/EconomyVBox/OreHBox" unique_id=117427782]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0.8980392, 1, 1)
+theme_override_font_sizes/font_size = 12
+text = "0 (+0/t)"
+
+[node name="CreditsHBox" type="HBoxContainer" parent="Background/ContentMargin/MainVBox/EconomyVBox" unique_id=2004581250]
+layout_mode = 2
+
+[node name="CreditsIcon" type="TextureRect" parent="Background/ContentMargin/MainVBox/EconomyVBox/CreditsHBox" unique_id=756828458]
+custom_minimum_size = Vector2(20, 20)
+layout_mode = 2
+texture = ExtResource("10_dkbjr")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="CreditsTitle" type="Label" parent="Background/ContentMargin/MainVBox/EconomyVBox/CreditsHBox" unique_id=247340369]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 12
+text = "Solar Credits"
+
+[node name="CreditsValueLabel" type="Label" parent="Background/ContentMargin/MainVBox/EconomyVBox/CreditsHBox" unique_id=2037387876]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.84313726, 0, 1)
+theme_override_font_sizes/font_size = 12
+text = "0 (+0/t)"
+
+[node name="HSeparator3" type="HSeparator" parent="Background/ContentMargin/MainVBox" unique_id=6110326]
+layout_mode = 2
+
+[node name="SystemsVBox" type="VBoxContainer" parent="Background/ContentMargin/MainVBox" unique_id=160301608]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="SystemsTitle" type="Label" parent="Background/ContentMargin/MainVBox/SystemsVBox" unique_id=821535580]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.56078434, 0.6392157, 0.7490196, 1)
+theme_override_font_sizes/font_size = 11
+text = "CONTROLLED SYSTEMS"
+
+[node name="SystemsScroll" type="ScrollContainer" parent="Background/ContentMargin/MainVBox/SystemsVBox" unique_id=750692204]
+custom_minimum_size = Vector2(0, 80)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="StarsList" type="VBoxContainer" parent="Background/ContentMargin/MainVBox/SystemsVBox/SystemsScroll" unique_id=233315368]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="HSeparator4" type="HSeparator" parent="Background/ContentMargin/MainVBox" unique_id=2123848637]
+layout_mode = 2
+
+[node name="BuildQueueVBox" type="VBoxContainer" parent="Background/ContentMargin/MainVBox" unique_id=1155932346]
+layout_mode = 2
+
+[node name="BuildQueueTitle" type="Label" parent="Background/ContentMargin/MainVBox/BuildQueueVBox" unique_id=1570369397]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.56078434, 0.6392157, 0.7490196, 1)
+theme_override_font_sizes/font_size = 11
+text = "CONSTRUCTION PROJECTS"
+
+[node name="BuildQueueScroll" type="ScrollContainer" parent="Background/ContentMargin/MainVBox/BuildQueueVBox" unique_id=1304315183]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+
+[node name="BuildQueueList" type="VBoxContainer" parent="Background/ContentMargin/MainVBox/BuildQueueVBox/BuildQueueScroll" unique_id=1184266536]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="CloseButton" type="Button" parent="." unique_id=1544017262]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(24, 24)
+layout_mode = 0
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -36.0
+offset_top = 10.0
+offset_right = -12.0
+offset_bottom = 34.0
+tooltip_text = "Close Empire Dossier"
+theme_override_styles/normal = ExtResource("11_un2m0")
+theme_override_styles/pressed = ExtResource("12_bg4f3")
+theme_override_styles/hover = ExtResource("12_bg4f3")
+theme_override_styles/focus = ExtResource("11_un2m0")
+text = "✕"

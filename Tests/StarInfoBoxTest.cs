@@ -31,11 +31,11 @@ public partial class StarInfoBoxTest
     {
         if (GodotObject.IsInstanceValid(_infoBox) && !_infoBox.IsQueuedForDeletion())
         {
-            _infoBox.Free();
+            _infoBox.QueueFree();
         }
         if (GodotObject.IsInstanceValid(_star) && !_star.IsQueuedForDeletion())
         {
-            _star.Free();
+            _star.QueueFree();
         }
     }
 
@@ -236,5 +236,36 @@ public partial class StarInfoBoxTest
 
         viewport.RemoveChild(_infoBox);
         viewport.Free();
+    }
+
+    [TestCase]
+    public void TestImprovementsListUpdatesLiveWithoutReopening()
+    {
+        _infoBox._Ready();
+        _infoBox.DisplayStar(_star);
+
+        var list = _infoBox.GetNodeOrNull<VBoxContainer>("%ImprovementsList");
+        AssertThat(list).IsNotNull();
+
+        // Initially empty
+        AssertThat(list.GetChildCount()).IsEqual(1); // "• No facilities installed"
+
+        // Add an improvement while panel is already open
+        var facility = new ImprovementResource
+        {
+            ImprovementName = "Deep Core Mine I"
+        };
+        _star.AddImprovement(facility);
+
+        // Run _Process to simulate next frame update
+        _infoBox._Process(0.016);
+
+        // Should automatically update without needing to close and reopen!
+        AssertThat(list.GetChildCount()).IsEqual(1);
+        var hbox = list.GetChild<HBoxContainer>(0);
+        AssertThat(hbox).IsNotNull();
+        var label = hbox.GetChild<Label>(0);
+        AssertThat(label).IsNotNull();
+        AssertThat(label.Text).Contains("Deep Core Mine I");
     }
 }
