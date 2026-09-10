@@ -2,6 +2,15 @@ using System;
 using Godot;
 using Godot.Collections; // Required for Array<T>
 
+public enum StarType
+{
+    YellowDwarf,
+    RedDwarf,
+    OrangeDwarf,
+    BlueGiant,
+    WhiteDwarf
+}
+
 public partial class Star : Node2D, IChronicleEntity
 {
     // IChronicleEntity implementation
@@ -11,8 +20,11 @@ public partial class Star : Node2D, IChronicleEntity
     public Vector2? WorldPosition => IsInsideTree() ? GlobalPosition : Position;
 
     private Label _myLabel;
+    private Sprite2D _sprite;
     private string _starName = "Unnamed Star"; // Default name
     private Color _starNameColor = Colors.White; // Default color for the star's name label
+    private StarType _starType = StarType.YellowDwarf;
+    private Color _starColor = GetDefaultColor(StarType.YellowDwarf);
 
     // Population and growth parameters
     private int _population = 0;
@@ -30,6 +42,59 @@ public partial class Star : Node2D, IChronicleEntity
 
     // Owning empire reference
     public Empire OwningEmpire { get; set; }
+
+    [Export]
+    public StarType StarType
+    {
+        get => _starType;
+        set => _starType = value;
+    }
+
+    [Export]
+    public Color StarColor
+    {
+        get => _starColor;
+        set
+        {
+            _starColor = value;
+            ApplyStarColor();
+        }
+    }
+
+    public static Color GetDefaultColor(StarType type) => type switch
+    {
+        StarType.YellowDwarf => new Color("ffe277"),
+        StarType.RedDwarf    => new Color("ff6252"),
+        StarType.OrangeDwarf => new Color("ffa726"),
+        StarType.BlueGiant   => new Color("59c3ff"),
+        StarType.WhiteDwarf  => new Color("ebf7ff"),
+        _                    => Colors.White
+    };
+
+    public static string GetTypeName(StarType type) => type switch
+    {
+        StarType.YellowDwarf => "Yellow Dwarf (Class G)",
+        StarType.RedDwarf    => "Red Dwarf (Class M)",
+        StarType.OrangeDwarf => "Orange Dwarf (Class K)",
+        StarType.BlueGiant   => "Blue Giant (Class O)",
+        StarType.WhiteDwarf  => "White Dwarf (Class D)",
+        _                    => "Unknown Star"
+    };
+
+    public void SetStarType(StarType type, Color? customColor = null)
+    {
+        _starType = type;
+        _starColor = customColor ?? GetDefaultColor(type);
+        ApplyStarColor();
+    }
+
+    public void ApplyStarColor()
+    {
+        if (_sprite != null && GodotObject.IsInstanceValid(_sprite))
+        {
+            _sprite.Modulate = _starColor;
+        }
+    }
 
     // Public property to set the name label color
     public Color StarNameColor
@@ -121,17 +186,16 @@ public partial class Star : Node2D, IChronicleEntity
 
     public override void _Ready()
     {
-        _myLabel = GetNode<Label>("InfoVBox/NameLabel"); // Assuming the Label node is a direct child named "Label"
+        _myLabel = GetNodeOrNull<Label>("%NameLabel") ?? GetNodeOrNull<Label>("InfoVBox/NameLabel");
+        _sprite = GetNodeOrNull<Sprite2D>("%Sprite2D") ?? GetNodeOrNull<Sprite2D>("Sprite2D");
 
         if (_myLabel != null)
         {
             _myLabel.Text = _starName; // Set the text using the potentially updated StarName
             _myLabel.SelfModulate = _starNameColor; // Apply the initial or set color
         }
-        else
-        {
-            GD.PushWarning("Child Label node 'Label' not found in Star instance!");
-        }
+
+        ApplyStarColor();
     }
 
     public void AddImprovement(ImprovementResource improvement)

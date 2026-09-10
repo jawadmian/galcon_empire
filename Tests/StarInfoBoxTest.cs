@@ -268,4 +268,43 @@ public partial class StarInfoBoxTest
         AssertThat(label).IsNotNull();
         AssertThat(label.Text).Contains("Deep Core Mine I");
     }
+
+    [TestCase]
+    public void TestStarTypeAndColorModulation()
+    {
+        var starScene = GD.Load<PackedScene>("res://Gameplay/star.tscn");
+        AssertThat(starScene).IsNotNull();
+
+        var starInstance = starScene.Instantiate<Star>();
+        AssertThat(starInstance).IsNotNull();
+
+        // Default type should be YellowDwarf
+        AssertThat(starInstance.StarType).IsEqual(StarType.YellowDwarf);
+
+        starInstance.SetStarType(StarType.BlueGiant);
+        AssertThat(starInstance.StarType).IsEqual(StarType.BlueGiant);
+        AssertThat(starInstance.StarColor).IsEqual(Star.GetDefaultColor(StarType.BlueGiant));
+
+        // When entering tree / calling _Ready, Sprite2D should modulate to StarColor
+        starInstance._Ready();
+        var sprite = starInstance.GetNodeOrNull<Sprite2D>("%Sprite2D") ?? starInstance.GetNodeOrNull<Sprite2D>("Sprite2D");
+        AssertThat(sprite).IsNotNull();
+        AssertThat(sprite.Texture.ResourcePath).IsEqual("res://Images/star_001.png");
+        AssertThat(sprite.Modulate).IsEqual(starInstance.StarColor);
+
+        // Dynamically changing star color updates sprite modulate immediately
+        Color customRed = new Color("ff4444");
+        starInstance.StarColor = customRed;
+        AssertThat(sprite.Modulate).IsEqual(customRed);
+
+        // Display in StarInfoBox verifies HUD type name and color
+        _infoBox._Ready();
+        _infoBox.DisplayStar(starInstance);
+        var typeLabel = _infoBox.GetNodeOrNull<Label>("%TypeLabel");
+        AssertThat(typeLabel).IsNotNull();
+        AssertThat(typeLabel.Text).IsEqual(Star.GetTypeName(StarType.BlueGiant).ToUpperInvariant());
+        AssertThat(typeLabel.SelfModulate).IsEqual(customRed);
+
+        starInstance.QueueFree();
+    }
 }

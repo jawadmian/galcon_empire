@@ -216,7 +216,8 @@ public partial class StarInfoBox : Control
 
         if (_typeLabel != null)
         {
-            _typeLabel.Text = "STELLAR COLONY";
+            _typeLabel.Text = Star.GetTypeName(_currentStar.StarType).ToUpperInvariant();
+            _typeLabel.SelfModulate = _currentStar.StarColor;
         }
 
         // Demographics

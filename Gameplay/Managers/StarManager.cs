@@ -137,6 +137,7 @@ public partial class StarManager : Node
             if (spawnedNode is Star starInstance)
             {
                 starInstance.Position = vector;
+                starInstance.SetStarType(PickRandomStarType());
                 if (_availableStarNames != null && starNameIndex < _availableStarNames.Count)
                 {
                     starInstance.StarName = _availableStarNames[starNameIndex];
@@ -262,5 +263,19 @@ public partial class StarManager : Node
             }
         }
         return points;
+    }
+
+    private StarType PickRandomStarType()
+    {
+        float roll = _rng.Randf();
+        if (roll < 0.40f)
+            return StarType.RedDwarf;
+        if (roll < 0.65f)
+            return StarType.OrangeDwarf;
+        if (roll < 0.85f)
+            return StarType.YellowDwarf;
+        if (roll < 0.95f)
+            return StarType.BlueGiant;
+        return StarType.WhiteDwarf;
     }
 }
