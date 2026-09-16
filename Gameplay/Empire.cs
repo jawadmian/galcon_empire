@@ -155,7 +155,7 @@ public partial class Empire : Node, IChronicleEntity
         }
 
         // Register default advisors
-        _advisors.Add(new BasicAdvisor());
+        _advisors.Add(new GoapAdvisor(this));
     }
 
     /// <summary>
