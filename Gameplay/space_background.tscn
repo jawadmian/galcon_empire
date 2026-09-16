@@ -1,0 +1,32 @@
+[gd_scene format=3 uid="uid://c6xk3q8v4j7m2"]
+
+[ext_resource type="Texture2D" uid="uid://frdi0erpy7vc" path="res://Images/Space/nebula_layer.png" id="1_nebula"]
+[ext_resource type="Texture2D" uid="uid://dl4x88qmh6nqe" path="res://Images/Space/starfield_distant.png" id="2_distant"]
+[ext_resource type="Texture2D" uid="uid://c2onxvf5bb2u7" path="res://Images/Space/starfield_clusters.png" id="3_clusters"]
+
+[node name="SpaceBackground" type="Node2D"]
+z_index = -100
+
+[node name="NebulaLayer" type="Parallax2D" parent="."]
+scroll_scale = Vector2(0.05, 0.05)
+repeat_size = Vector2(2048, 2048)
+
+[node name="NebulaSprite" type="Sprite2D" parent="NebulaLayer"]
+texture = ExtResource("1_nebula")
+centered = false
+
+[node name="DistantStarsLayer" type="Parallax2D" parent="."]
+scroll_scale = Vector2(0.15, 0.15)
+repeat_size = Vector2(2048, 2048)
+
+[node name="DistantStarsSprite" type="Sprite2D" parent="DistantStarsLayer"]
+texture = ExtResource("2_distant")
+centered = false
+
+[node name="ClustersLayer" type="Parallax2D" parent="."]
+scroll_scale = Vector2(0.3, 0.3)
+repeat_size = Vector2(2048, 2048)
+
+[node name="ClustersSprite" type="Sprite2D" parent="ClustersLayer"]
+texture = ExtResource("3_clusters")
+centered = false
