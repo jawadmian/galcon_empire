@@ -238,6 +238,37 @@ public partial class Empire : Node, IChronicleEntity
         return false;
     }
 
+    /// <summary>
+    /// Checks if a shipyard improvement is queued or currently under construction.
+    /// </summary>
+    public bool HasShipyardPending()
+    {
+        foreach (var req in _buildRequests)
+        {
+            if (req.Improvement != null && req.Improvement.ResourceOutput.ContainsKey(ResourceType.ShipyardProduction))
+                return true;
+        }
+        foreach (var item in _buildQueue)
+        {
+            if (item.Improvement != null && item.Improvement.ResourceOutput.ContainsKey(ResourceType.ShipyardProduction))
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Checks if this empire owns a completed shipyard, or has one pending construction.
+    /// </summary>
+    public bool HasShipyard()
+    {
+        foreach (var star in _ownedStars)
+        {
+            if (star.HasShipyard)
+                return true;
+        }
+        return HasShipyardPending();
+    }
+
     public void UpdateTick(int tickCount)
     {
         // 1. Production Logic (Existing)

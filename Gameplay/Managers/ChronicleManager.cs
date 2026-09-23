@@ -67,13 +67,14 @@ public partial class ChronicleManager : Node
             CloseDatabase();
 
             string connectionString;
+            string globalPath = null;
             if (!string.IsNullOrEmpty(customConnectionString))
             {
                 connectionString = customConnectionString;
             }
             else
             {
-                string globalPath = ProjectSettings.GlobalizePath(DatabasePath);
+                globalPath = ProjectSettings.GlobalizePath(DatabasePath);
                 string dirPath = System.IO.Path.GetDirectoryName(globalPath);
                 if (!string.IsNullOrEmpty(dirPath) && !System.IO.Directory.Exists(dirPath))
                 {
@@ -82,32 +83,59 @@ public partial class ChronicleManager : Node
 
                 if (resetDatabase && System.IO.File.Exists(globalPath))
                 {
-                    try
-                    {
-                        System.IO.File.Delete(globalPath);
-                        string walPath = globalPath + "-wal";
-                        string shmPath = globalPath + "-shm";
-                        if (System.IO.File.Exists(walPath)) System.IO.File.Delete(walPath);
-                        if (System.IO.File.Exists(shmPath)) System.IO.File.Delete(shmPath);
-                    }
-                    catch (Exception ex)
-                    {
-                        GD.PushWarning($"Could not delete old chronicle database file: {ex.Message}");
-                    }
+                    DeleteDatabaseFiles(globalPath);
                 }
 
                 connectionString = $"Data Source={globalPath}";
             }
 
-            _dbConnection = new SqliteConnection(connectionString);
-            _dbConnection.Open();
-
-            ExecuteSchemaSetup();
-
-            if (resetDatabase)
+            try
             {
-                ClearHistory();
+                OpenAndSetupDatabase(connectionString, resetDatabase);
             }
+            catch (SqliteException ex) when (globalPath != null && (ex.SqliteErrorCode == 11 || ex.Message.Contains("malformed")))
+            {
+                GD.PushWarning($"Chronicle database at {globalPath} was corrupt ({ex.Message}). Recreating clean database...");
+                CloseDatabase();
+                DeleteDatabaseFiles(globalPath);
+                OpenAndSetupDatabase(connectionString, resetDatabase);
+            }
+        }
+    }
+
+    private void DeleteDatabaseFiles(string globalPath)
+    {
+        try
+        {
+            SqliteConnection.ClearAllPools();
+            if (System.IO.File.Exists(globalPath)) System.IO.File.Delete(globalPath);
+            string walPath = globalPath + "-wal";
+            string shmPath = globalPath + "-shm";
+            if (System.IO.File.Exists(walPath)) System.IO.File.Delete(walPath);
+            if (System.IO.File.Exists(shmPath)) System.IO.File.Delete(shmPath);
+        }
+        catch (Exception ex)
+        {
+            GD.PushWarning($"Could not delete chronicle database file: {ex.Message}");
+        }
+    }
+
+    private void OpenAndSetupDatabase(string connectionString, bool resetDatabase)
+    {
+        _dbConnection = new SqliteConnection(connectionString);
+        _dbConnection.Open();
+
+        using (var pragmaCmd = _dbConnection.CreateCommand())
+        {
+            pragmaCmd.CommandText = "PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;";
+            pragmaCmd.ExecuteNonQuery();
+        }
+
+        ExecuteSchemaSetup();
+
+        if (resetDatabase)
+        {
+            ClearHistory();
         }
     }
 
@@ -151,40 +179,47 @@ public partial class ChronicleManager : Node
                 return;
             }
 
-            const string insertSql = @"
-                INSERT INTO chronicle_events (
-                    tick, category, title, raw_text, formatted_bbcode, primary_entity_id, entity_tags, metadata_json
-                ) VALUES (
-                    @tick, @category, @title, @raw_text, @formatted_bbcode, @primary_entity_id, @entity_tags, @metadata_json
-                );
-                SELECT last_insert_rowid();
-            ";
-
-            using var cmd = _dbConnection.CreateCommand();
-            cmd.CommandText = insertSql;
-            cmd.Parameters.AddWithValue("@tick", record.Tick);
-            cmd.Parameters.AddWithValue("@category", record.Category ?? string.Empty);
-            cmd.Parameters.AddWithValue("@title", record.Title ?? string.Empty);
-            cmd.Parameters.AddWithValue("@raw_text", record.RawText ?? string.Empty);
-            cmd.Parameters.AddWithValue("@formatted_bbcode", record.FormattedBbcode ?? string.Empty);
-            cmd.Parameters.AddWithValue("@primary_entity_id", record.PrimaryEntityId ?? string.Empty);
-            cmd.Parameters.AddWithValue("@entity_tags", record.EntityTags ?? string.Empty);
-            cmd.Parameters.AddWithValue("@metadata_json", record.MetadataJson ?? "{}");
-
-            var scalarResult = cmd.ExecuteScalar();
-            if (scalarResult != null)
+            try
             {
-                record.Id = Convert.ToInt64(scalarResult);
-            }
+                const string insertSql = @"
+                    INSERT INTO chronicle_events (
+                        tick, category, title, raw_text, formatted_bbcode, primary_entity_id, entity_tags, metadata_json
+                    ) VALUES (
+                        @tick, @category, @title, @raw_text, @formatted_bbcode, @primary_entity_id, @entity_tags, @metadata_json
+                    );
+                    SELECT last_insert_rowid();
+                ";
 
-            CallDeferred(
-                GodotObject.MethodName.EmitSignal,
-                SignalName.EventRecorded,
-                record.Id,
-                record.Title,
-                record.Category,
-                record.Tick
-            );
+                using var cmd = _dbConnection.CreateCommand();
+                cmd.CommandText = insertSql;
+                cmd.Parameters.AddWithValue("@tick", record.Tick);
+                cmd.Parameters.AddWithValue("@category", record.Category ?? string.Empty);
+                cmd.Parameters.AddWithValue("@title", record.Title ?? string.Empty);
+                cmd.Parameters.AddWithValue("@raw_text", record.RawText ?? string.Empty);
+                cmd.Parameters.AddWithValue("@formatted_bbcode", record.FormattedBbcode ?? string.Empty);
+                cmd.Parameters.AddWithValue("@primary_entity_id", record.PrimaryEntityId ?? string.Empty);
+                cmd.Parameters.AddWithValue("@entity_tags", record.EntityTags ?? string.Empty);
+                cmd.Parameters.AddWithValue("@metadata_json", record.MetadataJson ?? "{}");
+
+                var scalarResult = cmd.ExecuteScalar();
+                if (scalarResult != null)
+                {
+                    record.Id = Convert.ToInt64(scalarResult);
+                }
+
+                CallDeferred(
+                    GodotObject.MethodName.EmitSignal,
+                    SignalName.EventRecorded,
+                    record.Id,
+                    record.Title,
+                    record.Category,
+                    record.Tick
+                );
+            }
+            catch (Exception ex)
+            {
+                GD.PrintErr($"ChronicleManager: Failed to record event '{record.Title}': {ex.Message}");
+            }
         }
     }
 
@@ -363,6 +398,7 @@ public partial class ChronicleManager : Node
                 _dbConnection.Dispose();
                 _dbConnection = null;
             }
+            SqliteConnection.ClearAllPools();
         }
     }
 }

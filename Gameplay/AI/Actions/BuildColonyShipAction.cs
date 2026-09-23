@@ -10,7 +10,8 @@ public class BuildColonyShipAction : GoapAction
     public override bool CheckPreconditions(Blackboard state)
     {
         long currentOre = state.GetValue<long>("Stockpile_Ore", 0);
-        bool hasShipyard = state.GetValue<bool>("HasShipyard", false);
+        bool hasShipyard = state.GetValue<bool>("HasShipyard", false) ||
+                           state.GetValue<long>($"Production_{ResourceType.ShipyardProduction}", 0) > 0;
         bool hasColonyShip = state.GetValue<bool>("HasColonyShip", false);
         
         return currentOre >= _oreCost && hasShipyard && !hasColonyShip;

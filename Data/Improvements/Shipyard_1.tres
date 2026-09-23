@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="ImprovementResource" format=3 uid="uid://27j6uxfo86ow"]
+
+[ext_resource type="Script" uid="uid://dlw4b8trmmkgu" path="res://Data/ImprovementResource.cs" id="1_ptdwd"]
+
+[resource]
+script = ExtResource("1_ptdwd")
+ImprovementName = "Orbital Shipyard"
+ImprovementDescription = "Constructs and maintains spaceships. Provides 25 Ship Production Points (SPP) per tick."
+BuildTime = 3
+ResourceOutput = Dictionary[int, int]({
+3: 25
+})
+BuildCost = Dictionary[int, int]({
+1: 1000,
+2: 500
+})
+metadata/_custom_type_script = "uid://dlw4b8trmmkgu"

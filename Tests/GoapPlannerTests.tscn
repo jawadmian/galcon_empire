@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://cyh36es3tscn1"]
+
+[ext_resource type="Script" uid="uid://cyh36es3sfckp" path="res://Tests/GoapPlannerTests.cs" id="1_test"]
+
+[node name="GoapPlannerTests" type="Node2D"]
+script = ExtResource("1_test")

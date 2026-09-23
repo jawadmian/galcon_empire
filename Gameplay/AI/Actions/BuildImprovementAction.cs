@@ -45,6 +45,10 @@ public class BuildImprovementAction : GoapAction
         {
             long currentProduction = state.GetValue<long>($"Production_{output.Key}", 0);
             state.SetValue($"Production_{output.Key}", currentProduction + output.Value);
+            if (output.Key == ResourceType.ShipyardProduction && output.Value > 0)
+            {
+                state.SetValue("HasShipyard", true);
+            }
         }
     }
 

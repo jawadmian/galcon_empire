@@ -40,6 +40,9 @@ public partial class Star : Node2D, IChronicleEntity
     [Export]
     public Array<ImprovementResource> Improvements { get; set; } = new Array<ImprovementResource>();
 
+    // Convenience property to check if star produces ships
+    public bool HasShipyard => ProductionPerTick.TryGetValue(ResourceType.ShipyardProduction, out int spp) && spp > 0;
+
     // Owning empire reference
     public Empire OwningEmpire { get; set; }
 
@@ -172,6 +175,16 @@ public partial class Star : Node2D, IChronicleEntity
         get
         {
             ProductionPerTick.TryGetValue(ResourceType.Money, out int value);
+            return value;
+        }
+    }
+
+    // Public property for Shipyard Production (SPP)
+    public int StarShipyardProduction
+    {
+        get
+        {
+            ProductionPerTick.TryGetValue(ResourceType.ShipyardProduction, out int value);
             return value;
         }
     }

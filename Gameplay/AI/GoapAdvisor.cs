@@ -29,10 +29,11 @@ public class GoapAdvisor : IAdvisor
             }
         }
 
-        // Add bootstrap actions
-        AvailableActions.Add(new BuildShipyardAction());
         AvailableActions.Add(new BuildColonyShipAction());
         AvailableActions.Add(new ColonizeAction());
+
+        // Add goals: shipyard construction and resource growth
+        Goals.Add(new BuildShipyardGoal());
 
         // Dynamically create a GrowResourceGoal for every ResourceType
         foreach (ResourceType type in System.Enum.GetValues(typeof(ResourceType)))
@@ -70,8 +71,18 @@ public class GoapAdvisor : IAdvisor
             State.SetValue($"Production_{kvp.Key}", kvp.Value);
         }
         State.SetValue("OwnedStarsCount", _empire.OwnedStars.Count);
-        
-        // In the future, we would also update threatened stars, etc. here
+
+        bool hasShipyard = _empire.HasShipyard();
+        int shipyardCapacity = 0;
+        foreach (var star in _empire.OwnedStars)
+        {
+            if (star.ProductionPerTick.TryGetValue(ResourceType.ShipyardProduction, out int spp))
+            {
+                shipyardCapacity += spp;
+            }
+        }
+        State.SetValue("HasShipyard", hasShipyard);
+        State.SetValue("ShipyardProduction", shipyardCapacity);
     }
 
     /// <summary>

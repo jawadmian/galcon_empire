@@ -7,6 +7,7 @@ public enum ResourceType
     Food,
     Ore,
     Money,
+    ShipyardProduction,
 }
 
 // This makes your custom resource type available in the Godot editor
