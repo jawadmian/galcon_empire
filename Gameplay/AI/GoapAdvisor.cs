@@ -90,15 +90,22 @@ public class GoapAdvisor : IAdvisor
 
         bool hasShipyard = _empire.HasShipyard();
         int shipyardCapacity = 0;
+        int availableBuildingSlots = 0;
         foreach (var star in _empire.OwnedStars)
         {
             if (star.ProductionPerTick.TryGetValue(ResourceType.ShipyardProduction, out int spp))
             {
                 shipyardCapacity += spp;
             }
+            int freeOnStar = star.MaxImprovements - (star.Improvements.Count + _empire.GetPendingImprovementsCount(star));
+            if (freeOnStar > 0)
+            {
+                availableBuildingSlots += freeOnStar;
+            }
         }
         State.SetValue("HasShipyard", hasShipyard);
         State.SetValue("ShipyardProduction", shipyardCapacity);
+        State.SetValue("AvailableBuildingSlots", availableBuildingSlots);
 
         bool hasColonyShip =
             _empire.HasFleetWithAbility(ShipAbility.Colonize)
@@ -136,9 +143,13 @@ public class GoapAdvisor : IAdvisor
                 if (actionCompleted)
                 {
                     // Action is fully executed, remove it from the queue
-                    _currentPlan.Dequeue(); 
+                    _currentPlan.Dequeue();
                 }
-                // If actionCompleted is false, it might be a continuous action like WaitAction
+                else
+                {
+                    // Action failed at execution time; clear plan so we replan cleanly next tick
+                    _currentPlan = null;
+                }
             }
             else
             {

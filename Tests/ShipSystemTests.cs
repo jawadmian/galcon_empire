@@ -312,4 +312,76 @@ public partial class ShipSystemTests
         AssertThat(plan.Dequeue() is BuildColonyShipAction).IsTrue();
         AssertThat(plan.Dequeue() is ColonizeAction).IsTrue();
     }
+
+    [TestCase]
+    public void TestStarBuildingCapAndSpillover()
+    {
+        var empire = new Empire { EmpireName = "Builders" };
+        var starA = new Star { StarName = "Alpha", MaxImprovements = 2 };
+        var starB = new Star { StarName = "Beta", MaxImprovements = 2 };
+        empire.HomeStar = starA;
+        empire.AddStar(starB);
+
+        var mine = new ImprovementResource { ImprovementName = "Mine", BuildTime = 1 };
+        mine.ResourceOutput[ResourceType.Ore] = 100;
+
+        // Fill starA to its cap of 2
+        empire.QueueImprovement(mine, starA);
+        empire.QueueImprovement(mine, starA);
+        AssertThat(empire.HasAvailableBuildingSlot(starA)).IsFalse();
+
+        // Attempting a 3rd improvement on starA is rejected
+        empire.QueueImprovement(mine, starA);
+        AssertThat(empire.GetPendingImprovementsCount(starA)).IsEqual(2);
+
+        // GetStarWithAvailableBuildingSlot spills over to starB
+        AssertThat(empire.GetStarWithAvailableBuildingSlot()).IsEqual(starB);
+
+        empire.Free();
+        starA.Free();
+        starB.Free();
+    }
+
+    [TestCase]
+    public void TestStarBaseFoodAndPopulationConsumption()
+    {
+        var star = new Star
+        {
+            StarName = "Gaia",
+            BaseFoodProduction = 100, // Supports 10,000 baseline pop without farms
+            GrowthRate = 0.1f,
+            StarPopulation = 5000,
+        };
+
+        // At 5,000 pop: consumes 50, base 100 -> net +50 -> grows
+        AssertThat(star.FoodConsumptionPerTick).IsEqual(50);
+        AssertThat(star.NetFoodProductionPerTick).IsEqual(50);
+        star.UpdateTick();
+        AssertThat(star.StarPopulation).IsEqual(5500);
+
+        // At 10,000 pop (baseline): consumes 100, base 100 -> net 0 -> holds steady without farms
+        star.StarPopulation = 10000;
+        AssertThat(star.NetFoodProductionPerTick).IsEqual(0);
+        star.UpdateTick();
+        AssertThat(star.StarPopulation).IsEqual(10000);
+
+        // Overpopulated without farms (12,000 pop): shrinks toward baseline, never starving below 10,000
+        star.StarPopulation = 12000;
+        AssertThat(star.NetFoodProductionPerTick).IsEqual(-20);
+        star.UpdateTick();
+        AssertThat(star.StarPopulation).IsEqual(10800);
+        star.UpdateTick();
+        AssertThat(star.StarPopulation).IsEqual(10000);
+
+        // Adding a Farm (+500 Food) restores surplus and unlocks growth above baseline
+        var farm = new ImprovementResource { ImprovementName = "Farm", BuildTime = 2 };
+        farm.ResourceOutput[ResourceType.Food] = 500;
+        star.AddImprovement(farm);
+
+        AssertThat(star.NetFoodProductionPerTick).IsEqual(500);
+        star.UpdateTick();
+        AssertThat(star.StarPopulation).IsEqual(11000);
+
+        star.Free();
+    }
 }

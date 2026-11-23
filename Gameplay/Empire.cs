@@ -178,6 +178,56 @@ public partial class Empire : Node, IChronicleEntity
         _advisors.Add(new GoapAdvisor(this));
     }
 
+    public int GetPendingImprovementsCount(Star star)
+    {
+        if (star == null)
+            return 0;
+
+        int count = 0;
+        foreach (var req in _buildRequests)
+        {
+            if (req.TargetStar == star)
+                count++;
+        }
+        foreach (var item in _buildQueue)
+        {
+            if (item.TargetStar == star)
+                count++;
+        }
+        return count;
+    }
+
+    public bool HasAvailableBuildingSlot(Star star)
+    {
+        if (star == null)
+            return false;
+
+        return (star.Improvements.Count + GetPendingImprovementsCount(star)) < star.MaxImprovements;
+    }
+
+    /// <summary>
+    /// Returns the owned star with the most remaining improvement slots, or null if all stars are full.
+    /// </summary>
+    public Star GetStarWithAvailableBuildingSlot()
+    {
+        Star bestStar = null;
+        int mostFreeSlots = 0;
+
+        foreach (var star in _ownedStars)
+        {
+            if (star == null)
+                continue;
+
+            int freeSlots = star.MaxImprovements - (star.Improvements.Count + GetPendingImprovementsCount(star));
+            if (freeSlots > mostFreeSlots)
+            {
+                mostFreeSlots = freeSlots;
+                bestStar = star;
+            }
+        }
+        return bestStar;
+    }
+
     /// <summary>
     /// Requests to build an improvement on a specific star.
     /// </summary>
@@ -185,6 +235,12 @@ public partial class Empire : Node, IChronicleEntity
     {
         if (improvement == null || star == null)
             return;
+
+        if (!HasAvailableBuildingSlot(star))
+        {
+            GD.Print($"Empire {EmpireName} cannot queue {improvement.ImprovementName} at {star.StarName}: building cap ({star.MaxImprovements}) reached.");
+            return;
+        }
 
         GD.Print($"Empire {EmpireName} requested {improvement.ImprovementName} at {star.StarName}.");
         _buildRequests.Add(new BuildRequest { Improvement = improvement, TargetStar = star });
@@ -481,11 +537,19 @@ public partial class Empire : Node, IChronicleEntity
 
         foreach (Star star in _ownedStars)
         {
-            // Population-based resources: 1 of each stockpileable resource per 100 population
+            // Population-based output: +1 Ore/Money per 100 pop, but population CONSUMES Food (-1 per 100 pop)
+            // offset by the star's natural BaseFoodProduction.
             int popResources = star.StarPopulation / 100;
             foreach (ResourceType type in Enum.GetValues(typeof(ResourceType)))
             {
-                if (type.IsStockpileable())
+                if (!type.IsStockpileable())
+                    continue;
+
+                if (type == ResourceType.Food)
+                {
+                    tickProduction[ResourceType.Food] += star.BaseFoodProduction - star.FoodConsumptionPerTick;
+                }
+                else
                 {
                     tickProduction[type] += popResources;
                 }
@@ -501,7 +565,10 @@ public partial class Empire : Node, IChronicleEntity
         {
             if (productionEntry.Key.IsStockpileable())
             {
-                ResourceStockpiles[productionEntry.Key] += productionEntry.Value;
+                ResourceStockpiles[productionEntry.Key] = Math.Max(
+                    0,
+                    ResourceStockpiles[productionEntry.Key] + productionEntry.Value
+                );
             }
             ProductionPerTick[productionEntry.Key] = productionEntry.Value;
         }

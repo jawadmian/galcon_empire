@@ -1,91 +1,83 @@
-using Godot;
 using System;
 using System.Collections.Generic;
+using Godot;
+using GdUnit4;
+using static GdUnit4.Assertions;
 
-public partial class EmpireTests : Node
+[TestSuite]
+public partial class EmpireTests
 {
-    public override void _Ready()
-    {
-        GD.Print("--- Running Empire Tests ---");
-        
-        RunTest("Test Resource Stockpile Initialization", TestStockpileInitialization);
-        RunTest("Test Home Star Assignment", TestHomeStarAssignment);
-        RunTest("Test Resource Production Summation", TestResourceProduction);
-        RunTest("Test Build Queue Affordability", TestQueueRequestAffordability);
-        RunTest("Test Construction Resource Deduction", TestConstructionResourceDeduction);
-        RunTest("Test Construction Timing", TestConstructionTiming);
-        RunTest("Test Population Resource Production", TestPopulationResourceProduction);
-        RunTest("Test Advisor Recommendation Filtering", TestAdvisorRecommendationFiltering);
+    private readonly List<Node> _createdNodes = new List<Node>();
 
-        GD.Print("--- Empire Tests Completed ---");
-        // Exit the test runner if needed, though for now we'll just let it finish.
-    }
-
-    private void RunTest(string name, Action testFunc)
+    [AfterTest]
+    public void TearDown()
     {
-        try
+        foreach (var node in _createdNodes)
         {
-            testFunc();
-            GD.Print($"[PASS] {name}");
+            if (node != null && GodotObject.IsInstanceValid(node) && !node.IsQueuedForDeletion())
+            {
+                node.Free();
+            }
         }
-        catch (Exception ex)
-        {
-            GD.PrintErr($"[FAIL] {name}: {ex.Message}");
-        }
-    }
-
-    private void Assert(bool condition, string message)
-    {
-        if (!condition) throw new Exception(message);
+        _createdNodes.Clear();
     }
 
     private Empire CreateTestEmpire(string name = "TestEmpire")
     {
         var empire = new Empire { EmpireName = name };
         var star = new Star { StarName = name + "_Home" };
-        // We set home star BEFORE calling _Ready to avoid the error message
+        _createdNodes.Add(empire);
+        _createdNodes.Add(star);
+
         empire.HomeStar = star;
         empire._Ready();
         return empire;
     }
 
-    private void TestStockpileInitialization()
+    [TestCase]
+    public void TestStockpileInitialization()
     {
         var empire = CreateTestEmpire();
 
         foreach (ResourceType type in Enum.GetValues(typeof(ResourceType)))
         {
-            Assert(empire.ResourceStockpiles[type] == 0, $"Resource {type} should initialize to 0.");
+            AssertThat(empire.ResourceStockpiles[type]).IsEqual(0L);
         }
     }
 
-    private void TestHomeStarAssignment()
+    [TestCase]
+    public void TestHomeStarAssignment()
     {
         var empire = new Empire();
         var star = new Star { StarName = "TestStar" };
-        
+        _createdNodes.Add(empire);
+        _createdNodes.Add(star);
+
         empire.HomeStar = star;
-        Assert(empire.OwnedStars.Count == 1, "Setting HomeStar should add it to OwnedStars.");
-        Assert(empire.OwnedStars[0] == star, "HomeStar should be the first entry in OwnedStars.");
+        AssertThat(empire.OwnedStars.Count).IsEqual(1);
+        AssertThat(empire.OwnedStars[0]).IsEqual(star);
     }
 
-    private void TestResourceProduction()
+    [TestCase]
+    public void TestResourceProduction()
     {
         var empire = CreateTestEmpire();
         var star = empire.HomeStar;
-        
-        // Mock production on star
+
+        // Disable base food to isolate improvement summation
+        star.BaseFoodProduction = 0;
         star.ProductionPerTick[ResourceType.Food] = 100;
         star.ProductionPerTick[ResourceType.Ore] = 50;
-        
-        empire.UpdateTick(1);
-        empire.UpdateTick(1);
 
-        Assert(empire.ResourceStockpiles[ResourceType.Food] == 200, "Food stockpile should increase by production.");
-        Assert(empire.ResourceStockpiles[ResourceType.Ore] == 100, "Ore stockpile should increase by production.");
+        empire.UpdateTick(1);
+        empire.UpdateTick(2);
+
+        AssertThat(empire.ResourceStockpiles[ResourceType.Food]).IsEqual(200L);
+        AssertThat(empire.ResourceStockpiles[ResourceType.Ore]).IsEqual(100L);
     }
 
-    private void TestQueueRequestAffordability()
+    [TestCase]
+    public void TestQueueRequestAffordability()
     {
         var empire = CreateTestEmpire();
         var star = empire.HomeStar;
@@ -93,14 +85,13 @@ public partial class EmpireTests : Node
         improvement.BuildCost[ResourceType.Money] = 1000;
 
         empire.QueueImprovement(improvement, star);
-        
-        // Tick while unaffordable
         empire.UpdateTick(1);
-        
-        Assert(empire.ResourceStockpiles[ResourceType.Money] == 0, "No resources should have been deducted yet.");
+
+        AssertThat(empire.ResourceStockpiles[ResourceType.Money]).IsEqual(0L);
     }
 
-    private void TestConstructionResourceDeduction()
+    [TestCase]
+    public void TestConstructionResourceDeduction()
     {
         var empire = CreateTestEmpire();
         var star = empire.HomeStar;
@@ -108,105 +99,71 @@ public partial class EmpireTests : Node
         improvement.BuildCost[ResourceType.Money] = 100;
 
         empire.ResourceStockpiles[ResourceType.Money] = 500;
-        
-        empire.QueueImprovement(improvement, star);
-        empire.UpdateTick(1); // Should start construction
 
-        Assert(empire.ResourceStockpiles[ResourceType.Money] == 400, "Money should be deducted when construction starts.");
+        empire.QueueImprovement(improvement, star);
+        empire.UpdateTick(1);
+
+        AssertThat(empire.ResourceStockpiles[ResourceType.Money]).IsEqual(400L);
     }
 
-    private void TestConstructionTiming()
+    [TestCase]
+    public void TestConstructionTiming()
     {
         var empire = CreateTestEmpire();
         var star = empire.HomeStar;
         var improvement = new ImprovementResource { ImprovementName = "Slow Building", BuildTime = 3 };
-        
+
         empire.QueueImprovement(improvement, star);
-        
-        empire.UpdateTick(1); // Tick 1: Starts construction (Remaining: 3 -> 2 in same tick loop)
-        
+
+        empire.UpdateTick(1); // Tick 1: Starts construction (Remaining: 3 -> 2)
         empire.UpdateTick(2); // Tick 2: Remaining: 2 -> 1
-        Assert(star.Improvements.Count == 0, "Building should not be complete after 2 ticks.");
+        AssertThat(star.Improvements.Count).IsEqual(0);
 
         empire.UpdateTick(3); // Tick 3: Remaining: 1 -> 0 -> Complete
-        Assert(star.Improvements.Count == 1, "Building should be complete after 3 ticks.");
-        Assert(star.Improvements[0] == improvement, "The correct improvement should be added.");
+        AssertThat(star.Improvements.Count).IsEqual(1);
+        AssertThat(star.Improvements[0]).IsEqual(improvement);
     }
 
-    private void TestPopulationResourceProduction()
+    [TestCase]
+    public void TestPopulationResourceProduction()
     {
         var empire = CreateTestEmpire();
         var star = empire.HomeStar;
-        
-        // 1. Test with 250 population -> Should produce 2 of each stockpileable resource, 0 for non-stockpileable
+        star.BaseFoodProduction = 100;
+
+        // 1. 250 pop -> +2 Ore/Money, Food = 100 base - 2 consumed = +98, ShipyardProduction = 0
         star.StarPopulation = 250;
         empire.UpdateTick(1);
-        
-        foreach (ResourceType type in Enum.GetValues(typeof(ResourceType)))
-        {
-            long expected = type.IsStockpileable() ? 2 : 0;
-            Assert(empire.ResourceStockpiles[type] == expected, $"Resource {type} should be {expected} for 250 population.");
-        }
 
-        // 2. Test with 50 population -> Should produce 0 more
-        star.StarPopulation = 50;
+        AssertThat(empire.ResourceStockpiles[ResourceType.Ore]).IsEqual(2L);
+        AssertThat(empire.ResourceStockpiles[ResourceType.Money]).IsEqual(2L);
+        AssertThat(empire.ResourceStockpiles[ResourceType.Food]).IsEqual(98L);
+        AssertThat(empire.ResourceStockpiles[ResourceType.ShipyardProduction]).IsEqual(0L);
+
+        // 2. 15,000 pop -> +150 Ore/Money, Food = 100 base - 150 consumed = -50 net (stockpile 98 -> 48)
+        star.StarPopulation = 15000;
         empire.UpdateTick(2);
-        
-        foreach (ResourceType type in Enum.GetValues(typeof(ResourceType)))
-        {
-            long expected = type.IsStockpileable() ? 2 : 0;
-            Assert(empire.ResourceStockpiles[type] == expected, $"Resource {type} should still be {expected} after adding 50 pop production.");
-        }
 
-        // 3. Test with 1000 population -> Should produce 10 more for stockpileable resources
-        star.StarPopulation = 1000;
-        empire.UpdateTick(3);
-        
-        foreach (ResourceType type in Enum.GetValues(typeof(ResourceType)))
-        {
-            long expected = type.IsStockpileable() ? 12 : 0;
-            Assert(empire.ResourceStockpiles[type] == expected, $"Resource {type} should be {expected} after adding 1000 pop production.");
-        }
+        AssertThat(empire.ResourceStockpiles[ResourceType.Ore]).IsEqual(152L);
+        AssertThat(empire.ResourceStockpiles[ResourceType.Money]).IsEqual(152L);
+        AssertThat(empire.ProductionPerTick[ResourceType.Food]).IsEqual(-50L);
+        AssertThat(empire.ResourceStockpiles[ResourceType.Food]).IsEqual(48L);
     }
 
-    private void TestAdvisorRecommendationFiltering()
+    [TestCase]
+    public void TestImprovementPendingTracking()
     {
         var empire = CreateTestEmpire();
         var star = empire.HomeStar;
-        var advisor = new BasicAdvisor();
 
-        // 1. Setup available improvements in EmpireManager (mocking the scenario)
-        if (EmpireManager.Instance == null)
-        {
-            GD.PrintErr("Skipping Advisor test: EmpireManager.Instance is null. This is expected if the singleton is not initialized in the test scene.");
-            return;
-        }
-        var improvements = EmpireManager.Instance.AvailableImprovements;
-        if (improvements.Count < 2)
-        {
-            GD.Print("Skipping Advisor test: Not enough improvements loaded in EmpireManager.");
-            return;
-        }
+        var imp1 = new ImprovementResource { ImprovementName = "Mine I", BuildTime = 3 };
+        var imp2 = new ImprovementResource { ImprovementName = "Farm I", BuildTime = 2 };
 
-        // 2. Initial recommendation
-        advisor.Recommend(empire);
-        Assert(empire.IsImprovementPending(null, null) == false, "Dummy check for pending logic."); 
-        
-        // We need to inspect which improvement was added
-        // Since we can't easily see _buildRequests from outside, let's just verify that 
-        // subsequent calls don't keep adding the same one *if* we can detect it.
-        // Actually, let's just verify that IsImprovementPending works correctly first.
-        
-        var imp1 = improvements[0];
+        AssertThat(empire.IsImprovementPending(null, null)).IsFalse();
+        AssertThat(empire.IsImprovementPending(imp1, star)).IsFalse();
+
         empire.QueueImprovement(imp1, star);
-        Assert(empire.IsImprovementPending(imp1, star), "Improvement should be pending after QueueImprovement.");
-
-        // Simulate advisor check
-        // If we call advisor.Recommend now, it should pick a DIFFERENT improvement if available
-        // but we need to ensure the tick cooldown is bypassed
-        // Private fields are hard to reach, but we can wait or just test the IsImprovementPending logic directly.
-        
-        var imp2 = improvements[1];
-        Assert(!empire.IsImprovementPending(imp2, star), "Different improvement should not be pending.");
+        AssertThat(empire.IsImprovementPending(imp1, star)).IsTrue();
+        AssertThat(empire.IsImprovementPending(imp2, star)).IsFalse();
     }
 }

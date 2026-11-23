@@ -14,9 +14,12 @@ public class BuildImprovementAction : GoapAction
 
     public override bool CheckPreconditions(Blackboard state)
     {
-        // 1. Must own at least one star
+        // 1. Must own at least one star with an available building slot
         int ownedStars = state.GetValue<int>("OwnedStarsCount", 0);
         if (ownedStars <= 0) return false;
+
+        int availableSlots = state.GetValue<int>("AvailableBuildingSlots", 1);
+        if (availableSlots <= 0) return false;
 
         // 2. Check if we have enough resources
         foreach (var cost in _improvement.BuildCost)
@@ -50,16 +53,19 @@ public class BuildImprovementAction : GoapAction
                 state.SetValue("HasShipyard", true);
             }
         }
+
+        // 3. Consume a building slot in planning state
+        int availableSlots = state.GetValue<int>("AvailableBuildingSlots", 1);
+        state.SetValue("AvailableBuildingSlots", System.Math.Max(0, availableSlots - 1));
     }
 
     public override bool Perform(Empire empire, Blackboard state)
     {
-        if (empire.OwnedStars.Count > 0)
+        Star target = empire.GetStarWithAvailableBuildingSlot();
+        if (target != null)
         {
-            // For now, always queue on the first owned star (usually HomeStar)
-            Star target = empire.OwnedStars[0];
             empire.QueueImprovement(_improvement, target);
-            GD.Print($"Empire {empire.EmpireName} queued improvement: {_improvement.ImprovementName}");
+            GD.Print($"Empire {empire.EmpireName} queued improvement: {_improvement.ImprovementName} on {target.StarName}");
             return true;
         }
         return false;

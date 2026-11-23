@@ -191,6 +191,21 @@ public partial class Fleet : Node2D, IChronicleEntity
             return;
         }
 
+        // If heading to colonize a star that was claimed mid-flight, redirect immediately
+        if (CurrentOrder == FleetOrderType.Colonize && DestinationStar.OwningEmpire != null)
+        {
+            GD.Print(
+                $"Fleet '{FleetName}' detected {DestinationStar.StarName} was claimed mid-flight by {DestinationStar.OwningEmpire.EmpireName}."
+            );
+            if (!TryRedirectColonization())
+            {
+                DestinationStar = null;
+                CurrentOrder = FleetOrderType.None;
+                State = FleetState.InOrbit;
+                return;
+            }
+        }
+
         float speed = FleetSpeed;
         if (speed <= 0f)
             return;
@@ -252,6 +267,7 @@ public partial class Fleet : Node2D, IChronicleEntity
             GD.Print(
                 $"Fleet '{FleetName}' aborted colonization of {OrbitingStar.StarName}: already owned by {OrbitingStar.OwningEmpire.EmpireName}."
             );
+            TryRedirectColonization();
             return false;
         }
 
@@ -291,6 +307,25 @@ public partial class Fleet : Node2D, IChronicleEntity
             Disband();
         }
 
+        return true;
+    }
+
+    /// <summary>
+    /// Attempts to redirect a colony fleet to the nearest remaining unowned star.
+    /// Returns true if a new colonization target was found and ordered.
+    /// </summary>
+    public bool TryRedirectColonization()
+    {
+        if (!HasAbility(ShipAbility.Colonize) || !StarManager.HasInstance)
+            return false;
+
+        Vector2 currentPos = WorldPosition ?? Position;
+        Star nextTarget = StarManager.Instance.GetNearestUnownedStar(currentPos, OwningEmpire);
+        if (nextTarget == null)
+            return false;
+
+        GD.Print($"Fleet '{FleetName}' redirecting colonization order to {nextTarget.StarName}.");
+        OrderColonize(nextTarget);
         return true;
     }
 

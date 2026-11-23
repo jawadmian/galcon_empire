@@ -36,9 +36,25 @@ public partial class Star : Node2D, IChronicleEntity
     public int MaxPopulation { get; set; } = 100000;
     public float GrowthRate { get; set; } = 0.01f; // Represents a factor, e.g., 1.01 for specific growth behavior.
 
+    // Base biosphere food production so a star's baseline population never starves without farms
+    [Export]
+    public int BaseFoodProduction { get; set; } = 100;
+
+    // Maximum number of improvements allowed in this star system
+    [Export]
+    public int MaxImprovements { get; set; } = 6;
+
     // List of improvements on this star
     [Export]
     public Array<ImprovementResource> Improvements { get; set; } = new Array<ImprovementResource>();
+
+    public bool HasFreeImprovementSlot => Improvements.Count < MaxImprovements;
+
+    // Food consumed per tick by this star's population (1 Food per 100 population)
+    public int FoodConsumptionPerTick => _population / 100;
+
+    // Net food balance for this star: natural baseline + farms - population consumption
+    public int NetFoodProductionPerTick => BaseFoodProduction + StarFoodProduction - FoodConsumptionPerTick;
 
     // Convenience property to check if star produces ships
     public bool HasShipyard => ProductionPerTick.TryGetValue(ResourceType.ShipyardProduction, out int spp) && spp > 0;
@@ -191,10 +207,25 @@ public partial class Star : Node2D, IChronicleEntity
 
     public void UpdateTick()
     {
-        // Calculate the population increase based on the current population (_population),
-        // growth rate, and delta time.
-        int growthAmount = (int)(_population * GrowthRate);
-        StarPopulation += growthAmount; // The StarPopulation setter will handle clamping
+        if (_population <= 0)
+            return;
+
+        int netFood = NetFoodProductionPerTick;
+        int growthAmount = Math.Max(1, (int)(_population * GrowthRate));
+
+        if (netFood > 0)
+        {
+            // Surplus food supports population growth
+            StarPopulation += growthAmount;
+        }
+        else if (netFood < 0)
+        {
+            // Deficit shrinks population back toward sustainable baseline (never below BaseFoodProduction * 100)
+            int baselinePopulation = BaseFoodProduction * 100;
+            int nextPopulation = _population - growthAmount;
+            StarPopulation = Math.Max(baselinePopulation, nextPopulation);
+        }
+        // If netFood == 0, population holds steady at carrying capacity
     }
 
     public override void _Ready()

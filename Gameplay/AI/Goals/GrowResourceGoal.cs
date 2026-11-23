@@ -1,4 +1,4 @@
-using Godot;
+using System;
 
 public class GrowResourceGoal : GoapGoal
 {
@@ -14,7 +14,8 @@ public class GrowResourceGoal : GoapGoal
 
     public override bool IsValid(Blackboard currentBlackboard)
     {
-        return true; 
+        int availableSlots = currentBlackboard.GetValue<int>("AvailableBuildingSlots", 1);
+        return availableSlots > 0;
     }
 
     public override bool IsAchieved(Blackboard state)
@@ -26,29 +27,34 @@ public class GrowResourceGoal : GoapGoal
     public override void UpdatePriority(Blackboard currentBlackboard)
     {
         long currentProduction = currentBlackboard.GetValue<long>($"Production_{_targetResource}", 0);
-        
-        // If we've reached our target, bump it up so the AI never stops growing!
+
+        // If we've reached our target, bump it up so the AI keeps developing
         if (currentProduction >= _targetProduction)
         {
             _targetProduction = currentProduction + 15;
         }
 
-        // Dynamic priority scaling based on how far behind we are
-        if (currentProduction < _targetProduction * 0.25f)
+        if (_targetResource == ResourceType.Food)
         {
-            Priority = 3.0f; // Critical
+            // Food is consumed by population: urgent when net food <= 0, low priority once in healthy surplus
+            if (currentProduction <= 0)
+            {
+                Priority = 3.0f; // Critical: prevent stagnation/deficit
+            }
+            else if (currentProduction < 200)
+            {
+                Priority = 1.4f; // Moderate: build buffer for growing colonies
+            }
+            else
+            {
+                Priority = 0.4f; // Surplus: avoid over-indexing on Farms
+            }
+            return;
         }
-        else if (currentProduction < _targetProduction * 0.5f)
-        {
-            Priority = 2.0f; // High
-        }
-        else if (currentProduction < _targetProduction)
-        {
-            Priority = 1.0f; // Normal
-        }
-        else
-        {
-            Priority = 0.1f; 
-        }
+
+        // For Ore & Money, scale priority inversely with current production so whichever
+        // resource is lagging naturally takes precedence (preventing single-resource spam).
+        float clampedProd = Math.Max(0L, currentProduction);
+        Priority = 1.0f + (1.5f / (1.0f + (clampedProd / 1000.0f)));
     }
 }
