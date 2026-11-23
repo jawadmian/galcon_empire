@@ -17,8 +17,6 @@ public class GoapAdvisor : IAdvisor
     public GoapAdvisor(Empire empire)
     {
         _empire = empire;
-        // Bootstrap actions and goals
-        AvailableActions.Add(new WaitAction());
         
         // Dynamically add BuildImprovementAction for every loaded improvement
         if (EmpireManager.HasInstance)
@@ -29,16 +27,34 @@ public class GoapAdvisor : IAdvisor
             }
         }
 
-        AvailableActions.Add(new BuildColonyShipAction());
+        // Dynamically add BuildColonyShipAction for every ship design with ShipAbility.Colonize
+        bool addedColonyShipAction = false;
+        if (FleetManager.HasInstance)
+        {
+            foreach (var design in FleetManager.Instance.GetDesignsWithAbility(ShipAbility.Colonize))
+            {
+                AvailableActions.Add(new BuildColonyShipAction(design));
+                addedColonyShipAction = true;
+            }
+        }
+        if (!addedColonyShipAction)
+        {
+            AvailableActions.Add(new BuildColonyShipAction());
+        }
+
         AvailableActions.Add(new ColonizeAction());
 
-        // Add goals: shipyard construction and resource growth
+        // Add goals: shipyard construction, expansion, and stockpileable resource growth
         Goals.Add(new BuildShipyardGoal());
+        Goals.Add(new ColonizeStarGoal());
 
-        // Dynamically create a GrowResourceGoal for every ResourceType
+        // Dynamically create a GrowResourceGoal for every stockpileable ResourceType
         foreach (ResourceType type in System.Enum.GetValues(typeof(ResourceType)))
         {
-            Goals.Add(new GrowResourceGoal(type, 15)); // Target production of 15
+            if (type.IsStockpileable())
+            {
+                Goals.Add(new GrowResourceGoal(type, 15)); // Target production of 15
+            }
         }
         // Register with AIManager for time-slicing
         if (AIManager.HasInstance)
@@ -83,6 +99,21 @@ public class GoapAdvisor : IAdvisor
         }
         State.SetValue("HasShipyard", hasShipyard);
         State.SetValue("ShipyardProduction", shipyardCapacity);
+
+        bool hasColonyShip =
+            _empire.HasFleetWithAbility(ShipAbility.Colonize)
+            || _empire.HasShipPending(ShipAbility.Colonize);
+        bool hasIdleColonyShip = _empire.GetIdleFleetsWithAbility(ShipAbility.Colonize).Count > 0;
+        bool hasUnownedStars =
+            StarManager.HasInstance
+            && StarManager.Instance.GetNearestUnownedStar(
+                _empire.HomeStar?.WorldPosition ?? Vector2.Zero,
+                _empire
+            ) != null;
+
+        State.SetValue("HasColonyShip", hasColonyShip);
+        State.SetValue("HasIdleColonyShip", hasIdleColonyShip);
+        State.SetValue("HasUnownedStars", hasUnownedStars);
     }
 
     /// <summary>
@@ -131,37 +162,29 @@ public class GoapAdvisor : IAdvisor
             // Create a snapshot of the current state for the background thread
             var planningState = State.Clone();
 
-            GoapGoal topGoal = null;
-            float highestPriority = -1f;
-
-            // 1. Pick the highest priority goal that is valid and not yet achieved
+            // 1. Collect all valid, unachieved goals and sort by priority descending
+            var candidateGoals = new List<GoapGoal>();
             foreach (var goal in Goals)
             {
                 goal.UpdatePriority(planningState);
-                if (goal.IsValid(planningState) && !goal.IsAchieved(planningState))
+                if (goal.IsValid(planningState) && !goal.IsAchieved(planningState) && goal.Priority > 0f)
                 {
-                    if (goal.Priority > highestPriority)
-                    {
-                        highestPriority = goal.Priority;
-                        topGoal = goal;
-                    }
+                    candidateGoals.Add(goal);
                 }
             }
+            candidateGoals.Sort((a, b) => b.Priority.CompareTo(a.Priority));
 
-            if (topGoal != null)
+            // 2. Try planning goals in priority order so an unaffordable top goal
+            //    gracefully falls back to actionable economic/expansion goals
+            foreach (var goal in candidateGoals)
             {
-                // 2. Offload the heavy A* pathfinding to a background thread
-                Queue<GoapAction> plan = await Task.Run(() => _planner.Plan(planningState, topGoal, AvailableActions));
-                
+                Queue<GoapAction> plan = await Task.Run(() => _planner.Plan(planningState, goal, AvailableActions));
+
                 if (plan != null && plan.Count > 0)
                 {
                     _currentPlan = plan;
-                    GD.Print($"GoapAdvisor for {_empire.EmpireName}: Found plan for {topGoal.GetType().Name} with {plan.Count} steps.");
-                }
-                else
-                {
-                    // Silently wait for resources to accumulate instead of spamming logs
-                    // GD.Print($"GoapAdvisor for {_empire.EmpireName}: Failed to find a plan for {topGoal.GetType().Name}.");
+                    GD.Print($"GoapAdvisor for {_empire.EmpireName}: Found plan for {goal.GetType().Name} with {plan.Count} steps.");
+                    break;
                 }
             }
         }

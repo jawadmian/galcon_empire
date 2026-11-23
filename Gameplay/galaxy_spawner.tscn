@@ -12,7 +12,7 @@
 [node name="GalaxySpawner" type="Node2D" unique_id=1043833908]
 script = ExtResource("1_3fr7q")
 
-[node name="SpaceBackground" parent="." instance=ExtResource("2_bg")]
+[node name="SpaceBackground" parent="." unique_id=1973873317 instance=ExtResource("2_bg")]
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=871836324]
 position = Vector2(1153, 644)

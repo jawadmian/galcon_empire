@@ -1,0 +1,330 @@
+using System;
+using System.Collections.Generic;
+using Godot;
+
+public enum FleetState
+{
+    InOrbit,
+    InTransit,
+}
+
+public enum FleetOrderType
+{
+    None,
+    MoveTo,
+    Colonize,
+}
+
+/// <summary>
+/// Represents an operational group of one or more ships on the galaxy map.
+/// Moves in straight lines strictly on simulation ticks.
+/// </summary>
+public partial class Fleet : Node2D, IChronicleEntity
+{
+    public string FleetId { get; private set; } = Guid.NewGuid().ToString("N")[..8];
+    public string FleetName { get; set; } = "Unnamed Fleet";
+
+    // IChronicleEntity implementation
+    public string ChronicleId => $"fleet:{FleetId}";
+    public string ChronicleName => FleetName;
+    public string ChronicleType => "fleet";
+    public Vector2? WorldPosition => IsInsideTree() ? GlobalPosition : Position;
+
+    public Empire OwningEmpire { get; set; }
+
+    private readonly List<Ship> _ships = new List<Ship>();
+    public IReadOnlyList<Ship> Ships => _ships.AsReadOnly();
+
+    public FleetState State { get; private set; } = FleetState.InOrbit;
+    public FleetOrderType CurrentOrder { get; private set; } = FleetOrderType.None;
+    public Star OrbitingStar { get; private set; }
+    public Star DestinationStar { get; private set; }
+
+    [Export]
+    public float ArrivalThreshold { get; set; } = 5.0f;
+
+    [Signal]
+    public delegate void FleetArrivedSignalEventHandler(Fleet fleet, Star destination);
+
+    [Signal]
+    public delegate void StarColonizedSignalEventHandler(Fleet fleet, Star colonizedStar, Empire empire);
+
+    public bool IsIdle => State == FleetState.InOrbit && CurrentOrder == FleetOrderType.None;
+    public bool IsEmpty => _ships.Count == 0;
+
+    /// <summary>
+    /// Fleet speed in map units per tick, constrained by the slowest ship in the fleet.
+    /// </summary>
+    public float FleetSpeed
+    {
+        get
+        {
+            if (_ships.Count == 0)
+                return 0f;
+
+            float minSpeed = float.MaxValue;
+            foreach (var ship in _ships)
+            {
+                if (ship.Speed < minSpeed)
+                {
+                    minSpeed = ship.Speed;
+                }
+            }
+            return minSpeed == float.MaxValue ? 0f : minSpeed;
+        }
+    }
+
+    public void Initialize(Empire owner, Star startingStar, Ship initialShip = null)
+    {
+        OwningEmpire = owner;
+        OrbitingStar = startingStar;
+        State = FleetState.InOrbit;
+        CurrentOrder = FleetOrderType.None;
+
+        if (startingStar != null)
+        {
+            Position = startingStar.WorldPosition ?? startingStar.Position;
+        }
+
+        if (initialShip != null)
+        {
+            AddShip(initialShip);
+            FleetName = $"{owner?.EmpireName ?? "Independent"} {initialShip.Design.DesignName}";
+        }
+        else
+        {
+            FleetName = $"{owner?.EmpireName ?? "Independent"} Fleet {FleetId}";
+        }
+
+        Name = $"Fleet_{FleetId}";
+        QueueRedraw();
+    }
+
+    public void AddShip(Ship ship)
+    {
+        if (ship != null && !_ships.Contains(ship))
+        {
+            _ships.Add(ship);
+        }
+    }
+
+    public bool RemoveShip(Ship ship)
+    {
+        return ship != null && _ships.Remove(ship);
+    }
+
+    public bool HasAbility(ShipAbility ability)
+    {
+        foreach (var ship in _ships)
+        {
+            if (ship.HasAbility(ability))
+                return true;
+        }
+        return false;
+    }
+
+    public Ship GetShipWithAbility(ShipAbility ability)
+    {
+        foreach (var ship in _ships)
+        {
+            if (ship.HasAbility(ability))
+                return ship;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Orders the fleet to travel in a straight line to targetStar.
+    /// </summary>
+    public void OrderMoveTo(Star targetStar)
+    {
+        IssueOrder(targetStar, FleetOrderType.MoveTo);
+    }
+
+    /// <summary>
+    /// Orders the fleet to travel to targetStar and colonize it upon arrival.
+    /// </summary>
+    public void OrderColonize(Star targetStar)
+    {
+        IssueOrder(targetStar, FleetOrderType.Colonize);
+    }
+
+    private void IssueOrder(Star targetStar, FleetOrderType orderType)
+    {
+        if (targetStar == null || !GodotObject.IsInstanceValid(targetStar))
+            return;
+
+        DestinationStar = targetStar;
+        CurrentOrder = orderType;
+
+        if (OrbitingStar == targetStar)
+        {
+            ArriveAtDestination();
+            return;
+        }
+
+        OrbitingStar = null;
+        State = FleetState.InTransit;
+
+        Vector2 targetPos = targetStar.WorldPosition ?? targetStar.Position;
+        Vector2 toTarget = targetPos - Position;
+        if (toTarget.LengthSquared() > 0.0001f)
+        {
+            Rotation = toTarget.Angle();
+        }
+        QueueRedraw();
+    }
+
+    /// <summary>
+    /// Advances fleet movement by one simulation tick.
+    /// </summary>
+    public void UpdateTick()
+    {
+        if (State != FleetState.InTransit)
+            return;
+
+        if (DestinationStar == null || !GodotObject.IsInstanceValid(DestinationStar))
+        {
+            DestinationStar = null;
+            CurrentOrder = FleetOrderType.None;
+            State = FleetState.InOrbit;
+            return;
+        }
+
+        float speed = FleetSpeed;
+        if (speed <= 0f)
+            return;
+
+        Vector2 targetPos = DestinationStar.WorldPosition ?? DestinationStar.Position;
+        Vector2 toTarget = targetPos - Position;
+        float distance = toTarget.Length();
+
+        if (distance <= speed || distance <= ArrivalThreshold)
+        {
+            Position = targetPos;
+            ArriveAtDestination();
+        }
+        else
+        {
+            Position += toTarget.Normalized() * speed;
+            Rotation = toTarget.Angle();
+            QueueRedraw();
+        }
+    }
+
+    private void ArriveAtDestination()
+    {
+        Star arrivedStar = DestinationStar;
+        OrbitingStar = arrivedStar;
+        DestinationStar = null;
+        State = FleetState.InOrbit;
+
+        FleetOrderType pendingOrder = CurrentOrder;
+        CurrentOrder = FleetOrderType.None;
+
+        EmitSignal(SignalName.FleetArrivedSignal, this, arrivedStar);
+
+        if (pendingOrder == FleetOrderType.Colonize)
+        {
+            ColonizeCurrentStar();
+        }
+
+        QueueRedraw();
+    }
+
+    /// <summary>
+    /// Consumes a ship with ShipAbility.Colonize to claim the currently orbited unowned star.
+    /// Aborts gracefully if the star was already claimed by another empire.
+    /// </summary>
+    public bool ColonizeCurrentStar()
+    {
+        if (
+            OwningEmpire == null
+            || OrbitingStar == null
+            || !GodotObject.IsInstanceValid(OrbitingStar)
+        )
+        {
+            return false;
+        }
+
+        if (OrbitingStar.OwningEmpire != null)
+        {
+            GD.Print(
+                $"Fleet '{FleetName}' aborted colonization of {OrbitingStar.StarName}: already owned by {OrbitingStar.OwningEmpire.EmpireName}."
+            );
+            return false;
+        }
+
+        Ship colonyShip = GetShipWithAbility(ShipAbility.Colonize);
+        if (colonyShip == null)
+        {
+            return false;
+        }
+
+        Star targetStar = OrbitingStar;
+        _ships.Remove(colonyShip);
+
+        OwningEmpire.AddStar(targetStar);
+        targetStar.StarNameColor = OwningEmpire.EmpireColor;
+
+        int initialPopulation = colonyShip.CargoCapacity > 0 ? colonyShip.CargoCapacity : 5000;
+        if (targetStar.StarPopulation < initialPopulation)
+        {
+            targetStar.StarPopulation = initialPopulation;
+        }
+
+        GD.Print(
+            $"Empire {OwningEmpire.EmpireName} established a new colony on {targetStar.StarName} (Pop: {targetStar.StarPopulation})."
+        );
+
+        ChronicleEvent.Create(EventCategory.Political, "New Colony Established")
+            .Involving(OwningEmpire, isPrimary: true)
+            .Involving(targetStar)
+            .WithTemplate("{empire} has established a new colony on {star}.")
+            .WithMetadata("initial_population", targetStar.StarPopulation)
+            .Record();
+
+        EmitSignal(SignalName.StarColonizedSignal, this, targetStar, OwningEmpire);
+
+        if (_ships.Count == 0)
+        {
+            Disband();
+        }
+
+        return true;
+    }
+
+    public void Disband()
+    {
+        OwningEmpire?.UnregisterFleet(this);
+        if (FleetManager.HasInstance)
+        {
+            FleetManager.Instance.UnregisterFleet(this);
+        }
+
+        if (IsInsideTree() && !IsQueuedForDeletion())
+        {
+            QueueFree();
+        }
+    }
+
+    public override void _Draw()
+    {
+        Color color = OwningEmpire?.EmpireColor ?? Colors.White;
+        // Draw a small directional chevron/triangle representing the fleet
+        Vector2[] points =
+        {
+            new Vector2(10, 0),
+            new Vector2(-7, -6),
+            new Vector2(-4, 0),
+            new Vector2(-7, 6),
+        };
+        DrawColoredPolygon(points, color);
+        DrawPolyline(
+            new[] { points[0], points[1], points[2], points[3], points[0] },
+            Colors.White,
+            1.2f,
+            true
+        );
+    }
+}

@@ -6,6 +6,7 @@ using Godot;
 public partial class StarManager : Node
 {
     private static StarManager _instance;
+    public static bool HasInstance => _instance != null;
     public static StarManager Instance
     {
         get
@@ -99,6 +100,53 @@ public partial class StarManager : Node
     public IReadOnlyList<Star> GetSpawnedStars()
     {
         return _spawnedStars.AsReadOnly();
+    }
+
+    public List<Star> GetUnownedStars()
+    {
+        var unowned = new List<Star>();
+        foreach (Star star in _spawnedStars)
+        {
+            if (star != null && GodotObject.IsInstanceValid(star) && star.OwningEmpire == null)
+            {
+                unowned.Add(star);
+            }
+        }
+        return unowned;
+    }
+
+    public Star GetNearestUnownedStar(Vector2 origin, Empire excludeTargetedByEmpire = null)
+    {
+        Star nearest = null;
+        float bestDistSq = float.MaxValue;
+
+        foreach (Star star in _spawnedStars)
+        {
+            if (star == null || !GodotObject.IsInstanceValid(star) || star.OwningEmpire != null)
+                continue;
+
+            if (
+                excludeTargetedByEmpire != null
+                && FleetManager.HasInstance
+                && FleetManager.Instance.HasFleetTargetingStar(
+                    excludeTargetedByEmpire,
+                    star,
+                    FleetOrderType.Colonize
+                )
+            )
+            {
+                continue;
+            }
+
+            Vector2 starPos = star.WorldPosition ?? star.Position;
+            float distSq = origin.DistanceSquaredTo(starPos);
+            if (distSq < bestDistSq)
+            {
+                bestDistSq = distSq;
+                nearest = star;
+            }
+        }
+        return nearest;
     }
 
     public void UpdateTick()

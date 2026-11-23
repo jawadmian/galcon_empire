@@ -88,12 +88,32 @@ public partial class Empire : Node, IChronicleEntity
         public bool IsUnderConstruction { get; set; }
     }
 
+    public class ShipBuildRequest
+    {
+        public ShipDesignResource Design { get; set; }
+        public Star TargetStar { get; set; }
+    }
+
+    public class ShipBuildQueueItem
+    {
+        public ShipDesignResource Design { get; set; }
+        public Star TargetStar { get; set; }
+        public int AccumulatedProduction { get; set; }
+        public int TotalProductionCost { get; set; }
+    }
+
     private readonly List<BuildRequest> _buildRequests = new List<BuildRequest>();
     private readonly List<BuildQueueItem> _buildQueue = new List<BuildQueueItem>();
+    private readonly List<ShipBuildRequest> _shipBuildRequests = new List<ShipBuildRequest>();
+    private readonly List<ShipBuildQueueItem> _shipBuildQueue = new List<ShipBuildQueueItem>();
+    private readonly List<Fleet> _fleets = new List<Fleet>();
     private readonly List<IAdvisor> _advisors = new List<IAdvisor>();
 
     public IReadOnlyList<BuildRequest> BuildRequests => _buildRequests.AsReadOnly();
     public IReadOnlyList<BuildQueueItem> BuildQueue => _buildQueue.AsReadOnly();
+    public IReadOnlyList<ShipBuildRequest> ShipBuildRequests => _shipBuildRequests.AsReadOnly();
+    public IReadOnlyList<ShipBuildQueueItem> ShipBuildQueue => _shipBuildQueue.AsReadOnly();
+    public IReadOnlyList<Fleet> OwnedFleets => _fleets.AsReadOnly();
 
     /// <summary>
     /// Returns all active construction projects and pending build requests for UI display.
@@ -269,9 +289,190 @@ public partial class Empire : Node, IChronicleEntity
         return HasShipyardPending();
     }
 
+    /// <summary>
+    /// Returns the owned star with the highest local ShipyardProduction capacity, or null if none.
+    /// </summary>
+    public Star GetBestShipyardStar()
+    {
+        Star best = null;
+        int bestSpp = 0;
+        foreach (var star in _ownedStars)
+        {
+            if (star != null && star.StarShipyardProduction > bestSpp)
+            {
+                bestSpp = star.StarShipyardProduction;
+                best = star;
+            }
+        }
+        return best;
+    }
+
+    /// <summary>
+    /// Requests to construct a ship at a star with a shipyard (auto-selects best shipyard if star is null).
+    /// </summary>
+    public bool QueueShip(ShipDesignResource design, Star star = null)
+    {
+        if (design == null)
+            return false;
+
+        Star target = star ?? GetBestShipyardStar();
+        if (target == null || !target.HasShipyard)
+            return false;
+
+        GD.Print($"Empire {EmpireName} requested {design.DesignName} at {target.StarName}.");
+        _shipBuildRequests.Add(new ShipBuildRequest { Design = design, TargetStar = target });
+        return true;
+    }
+
+    public bool CanAffordShip(ShipDesignResource design)
+    {
+        if (design == null)
+            return false;
+
+        foreach (var cost in design.ResourceCosts)
+        {
+            if (
+                !ResourceStockpiles.ContainsKey(cost.Key)
+                || ResourceStockpiles[cost.Key] < cost.Value
+            )
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public bool HasShipPending(ShipAbility ability)
+    {
+        foreach (var req in _shipBuildRequests)
+        {
+            if (req.Design != null && req.Design.HasAbility(ability))
+                return true;
+        }
+        foreach (var item in _shipBuildQueue)
+        {
+            if (item.Design != null && item.Design.HasAbility(ability))
+                return true;
+        }
+        return false;
+    }
+
+    public void RegisterFleet(Fleet fleet)
+    {
+        if (fleet != null && !_fleets.Contains(fleet))
+        {
+            _fleets.Add(fleet);
+        }
+    }
+
+    public void UnregisterFleet(Fleet fleet)
+    {
+        if (fleet != null)
+        {
+            _fleets.Remove(fleet);
+        }
+    }
+
+    public List<Fleet> GetIdleFleetsWithAbility(ShipAbility ability)
+    {
+        var result = new List<Fleet>();
+        for (int i = _fleets.Count - 1; i >= 0; i--)
+        {
+            var fleet = _fleets[i];
+            if (fleet == null || !GodotObject.IsInstanceValid(fleet) || fleet.IsQueuedForDeletion() || fleet.IsEmpty)
+            {
+                _fleets.RemoveAt(i);
+                continue;
+            }
+            if (fleet.IsIdle && fleet.HasAbility(ability))
+            {
+                result.Add(fleet);
+            }
+        }
+        return result;
+    }
+
+    public bool HasFleetWithAbility(ShipAbility ability)
+    {
+        for (int i = _fleets.Count - 1; i >= 0; i--)
+        {
+            var fleet = _fleets[i];
+            if (fleet == null || !GodotObject.IsInstanceValid(fleet) || fleet.IsQueuedForDeletion() || fleet.IsEmpty)
+            {
+                _fleets.RemoveAt(i);
+                continue;
+            }
+            if (fleet.HasAbility(ability))
+                return true;
+        }
+        return false;
+    }
+
+    private bool IsStarBuildingShip(Star star)
+    {
+        foreach (var item in _shipBuildQueue)
+        {
+            if (item.TargetStar == star)
+                return true;
+        }
+        return false;
+    }
+
+    private void StartShipConstruction(ShipBuildRequest request)
+    {
+        foreach (var cost in request.Design.ResourceCosts)
+        {
+            ResourceStockpiles[cost.Key] -= cost.Value;
+        }
+
+        GD.Print(
+            $"Empire {EmpireName} started constructing {request.Design.DesignName} at {request.TargetStar.StarName} (Cost: {request.Design.ProductionCost} SPP)."
+        );
+
+        _shipBuildQueue.Add(
+            new ShipBuildQueueItem
+            {
+                Design = request.Design,
+                TargetStar = request.TargetStar,
+                AccumulatedProduction = 0,
+                TotalProductionCost = Math.Max(1, request.Design.ProductionCost),
+            }
+        );
+    }
+
+    private Fleet SpawnCompletedShip(ShipDesignResource design, Star star)
+    {
+        var ship = new Ship(design);
+        Fleet fleet;
+        if (FleetManager.HasInstance)
+        {
+            fleet = FleetManager.Instance.SpawnFleet(this, star, ship);
+        }
+        else
+        {
+            fleet = new Fleet();
+            fleet.Initialize(this, star, ship);
+        }
+
+        RegisterFleet(fleet);
+
+        GD.Print(
+            $"Empire {EmpireName} completed ship {design.DesignName} at {star.StarName}."
+        );
+
+        ChronicleEvent.Create(EventCategory.Military, "Ship Commissioned")
+            .Involving(this, isPrimary: true)
+            .Involving(star)
+            .WithTemplate("{empire} commissioned a new [b]{ship}[/b] at {star}.")
+            .WithArg("ship", design.DesignName)
+            .Record();
+
+        return fleet;
+    }
+
     public void UpdateTick(int tickCount)
     {
-        // 1. Production Logic (Existing)
+        // 1. Production Logic
         Dictionary<ResourceType, long> tickProduction = new Dictionary<ResourceType, long>();
         foreach (ResourceType type in Enum.GetValues(typeof(ResourceType)))
         {
@@ -280,11 +481,14 @@ public partial class Empire : Node, IChronicleEntity
 
         foreach (Star star in _ownedStars)
         {
-            // Population-based resources: 1 of each per 100 population
+            // Population-based resources: 1 of each stockpileable resource per 100 population
             int popResources = star.StarPopulation / 100;
             foreach (ResourceType type in Enum.GetValues(typeof(ResourceType)))
             {
-                tickProduction[type] += popResources;
+                if (type.IsStockpileable())
+                {
+                    tickProduction[type] += popResources;
+                }
             }
 
             foreach (var productionEntry in star.ProductionPerTick)
@@ -295,7 +499,10 @@ public partial class Empire : Node, IChronicleEntity
 
         foreach (var productionEntry in tickProduction)
         {
-            ResourceStockpiles[productionEntry.Key] += productionEntry.Value;
+            if (productionEntry.Key.IsStockpileable())
+            {
+                ResourceStockpiles[productionEntry.Key] += productionEntry.Value;
+            }
             ProductionPerTick[productionEntry.Key] = productionEntry.Value;
         }
 
@@ -305,7 +512,7 @@ public partial class Empire : Node, IChronicleEntity
             advisor.Recommend(this);
         }
 
-        // 3. Process Build Requests
+        // 3. Process Improvement Build Requests
         for (int i = _buildRequests.Count - 1; i >= 0; i--)
         {
             var request = _buildRequests[i];
@@ -316,7 +523,7 @@ public partial class Empire : Node, IChronicleEntity
             }
         }
 
-        // 3. Process Build Queue
+        // 4. Process Improvement Build Queue
         for (int i = _buildQueue.Count - 1; i >= 0; i--)
         {
             var item = _buildQueue[i];
@@ -337,6 +544,38 @@ public partial class Empire : Node, IChronicleEntity
                     .Record();
 
                 _buildQueue.RemoveAt(i);
+            }
+        }
+
+        // 5. Process Ship Build Requests (1 active ship per star shipyard at a time)
+        for (int i = _shipBuildRequests.Count - 1; i >= 0; i--)
+        {
+            var request = _shipBuildRequests[i];
+            if (
+                request.TargetStar != null
+                && request.TargetStar.HasShipyard
+                && !IsStarBuildingShip(request.TargetStar)
+                && CanAffordShip(request.Design)
+            )
+            {
+                StartShipConstruction(request);
+                _shipBuildRequests.RemoveAt(i);
+            }
+        }
+
+        // 6. Process Ship Build Queue (applies each star's local non-stockpileable SPP per tick)
+        for (int i = _shipBuildQueue.Count - 1; i >= 0; i--)
+        {
+            var item = _shipBuildQueue[i];
+            int localSpp = item.TargetStar?.StarShipyardProduction ?? 0;
+            if (localSpp <= 0)
+                continue;
+
+            item.AccumulatedProduction += localSpp;
+            if (item.AccumulatedProduction >= item.TotalProductionCost)
+            {
+                SpawnCompletedShip(item.Design, item.TargetStar);
+                _shipBuildQueue.RemoveAt(i);
             }
         }
     }

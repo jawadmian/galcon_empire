@@ -34,17 +34,29 @@ Every ship design is defined by a set of foundational stats:
 
 | Stat | Type | Description |
 | :--- | :--- | :--- |
-| **Speed** | `float` | Movement speed across galactic coordinates (units per game tick or second). |
+| **Speed** | `float` | Movement speed across galactic coordinates (map units per game tick). |
 | **MaxHitPoints** | `int` | Maximum structural health and armor. When HP reaches 0, the ship is destroyed. |
 | **AttackDamage** | `int` | Offensive combat output per round/tick during tactical resolution (0 for non-combat ships). |
 | **DefenseRating** | `int` | Damage mitigation or shield rating that reduces incoming damage. |
 | **CargoCapacity** | `int` | Capacity for transporting resources, colonist population, or supplies. |
-| **SensorRange** | `float` | Detection radius around the ship/fleet for vision and discovering undiscovered stars/fleets. |
-| **ProductionCost**| `int` | Total construction points (SPP) required to build the ship. Derived from stats and abilities. |
-| **ResourceCosts** | `Dictionary<ResourceType, int>` | Material resources (e.g., Ore, Money) deducted when construction begins or ticks. |
+| **SensorRange** | `float` | Detection radius around the ship/fleet for vision and discovering undiscovered stars/fleets (future Fog of War pass). |
+| **ProductionCost**| `int` | Total construction points (SPP) required to build the ship. Explicitly authored on `.tres` blueprints in Phase 2 (stat-weighted formula deferred to Ship Designer / Tech phase). |
+| **ResourceCosts** | `Dictionary<ResourceType, int>` | Material resources (e.g., Ore, Money) deducted when construction begins. |
 
-### 3.2. Special Abilities
-Ships can possess one or more modular ability flags or components:
+### 3.2. Special Abilities (Strongly Typed)
+Ships can possess one or more strongly typed `ShipAbility` enum values:
+
+```csharp
+public enum ShipAbility
+{
+    Colonize,
+    Stealth,
+    AdvancedSensors,
+    Repair,
+    TroopTransport,
+    Bombardment
+}
+```
 
 - **Colonize**:
   - Allows the ship to deploy onto an uncolonized star, establishing an outpost/colony with initial population and claiming ownership for the empire. The ship is consumed in the process.
@@ -52,9 +64,9 @@ Ships can possess one or more modular ability flags or components:
   - The fleet remains hidden from other empires' sensor grids unless scanned by an entity with **Advanced Sensors** within a close threshold.
 - **Advanced Sensors**:
   - Extends sensor range significantly and counters stealth cloaking within scan distance.
-- **Support / Repair**:
+- **Repair (Support)**:
   - Automatically restores hit points to damaged ships in the same fleet or orbit over time.
-- **Troop Transport / Bombardment**:
+- **TroopTransport / Bombardment**:
   - Specialized capabilities for assaulting inhabited enemy stars (Phase 3).
 
 ---
@@ -75,7 +87,7 @@ public partial class ShipDesignResource : Resource
     [Export] public string DesignName { get; set; }
     [Export] public string RequiredTechId { get; set; } = string.Empty;
     [Export] public int RequiredTechLevel { get; set; } = 1;
-    [Export] public Godot.Collections.Array<string> SpecialAbilities { get; set; } = new();
+    [Export] public Godot.Collections.Array<ShipAbility> SpecialAbilities { get; set; } = new();
     ...
 }
 ```
@@ -91,22 +103,23 @@ This formula guarantees that high-performance or stealth ships inherently requir
 
 ## 5. Shipyard & Construction System
 
-### 5.1. Shipyard Facility
-A **Shipyard** is an improvement built on a star (e.g., `Shipyard_1.tres`):
-- Provides a **Shipyard Output (SPP per tick)**, for example:
-  - *Tier 1 Shipyard*: 25 SPP / tick
+### 5.1. Shipyard Facility & Non-Stockpileable SPP
+A **Shipyard** is a standard `ImprovementResource` built on a star (e.g., `Shipyard_1.tres`) that outputs `ResourceType.ShipyardProduction` in its `ResourceOutput` dictionary:
+- Provides a **local per-star Shipyard Output (SPP per tick)**, for example:
+  - *Tier 1 Orbital Shipyard*: 25 SPP / tick
   - *Tier 2 Shipyard*: 50 SPP / tick
   - *Tier 3 Naval Orbital Complex*: 100 SPP / tick
+- **Non-Stockpileable Resource**: `ResourceType.ShipyardProduction` is a local per-tick capacity, **not** a stockpileable global currency. Idle shipyards do not bank unused SPP for future turns, and raw star population does not generate `ShipyardProduction`.
 
 ### 5.2. Construction Queue & Time
-1. **Queuing**: An empire orders a ship design at a star that possesses a Shipyard.
-2. **Resource Deduction**: Upfront costs (Ore, Money) are validated against empire stockpiles and deducted upon starting.
+1. **Queuing**: An empire orders a ship design at a star that possesses `StarShipyardProduction > 0`.
+2. **Resource Deduction**: Upfront material costs (`ResourceCosts`, e.g., Ore, Money) are validated against empire stockpiles and deducted upon starting construction.
 3. **Turn Progress**:
-   - Each tick, the shipyard applies its SPP to the active ship in the queue.
-   - $\text{RemainingTicks} = \lceil \frac{\text{RemainingProductionCost}}{\text{ShipyardSPP}} \rceil$.
+   - Each tick, the star's local `StarShipyardProduction` (SPP) is applied to the active ship in that star's queue.
+   - $\text{RemainingTicks} = \lceil \frac{\text{RemainingProductionCost}}{\text{StarShipyardProduction}} \rceil$.
 4. **Completion & Spawning**:
-   - When accumulated SPP $\ge$ `ProductionCost`, the ship is spawned.
-   - The ship is automatically merged into an orbiting defense fleet at the star, or forms a new single-ship fleet ready to receive orders.
+   - When accumulated SPP $\ge$ `ProductionCost`, the ship is spawned via `FleetManager`.
+   - The ship forms a new fleet (or merges into an orbiting fleet) at the star, ready to receive orders.
 
 ---
 
@@ -117,20 +130,22 @@ Space in *GalconEmpire* contains no prohibitive space terrain or blockades. Move
 - **Origin**: Current `Vector2` coordinates of the starting star or orbital point.
 - **Target**: `Vector2` coordinates of the destination star.
 - **Direction**: Normalized vector $\vec{D} = \frac{\vec{Target} - \vec{Current}}{\|\vec{Target} - \vec{Current}\|}$.
-- **Speed**: $\text{Speed}_{fleet} = \min_{s \in Fleet}(\text{Speed}_s)$.
+- **Speed**: $\text{Speed}_{fleet} = \min_{s \in Fleet}(\text{Speed}_s)$ (measured in map units per tick).
 
-### 6.2. Movement Simulation
-Fleets can operate in two primary states:
+### 6.2. Tick-Driven Movement Simulation
+Fleets operate in two primary states:
 1. **In Orbit**: Stationed at a friendly or neutral star.
 2. **In Transit**: Navigating through open space towards target coordinates.
 
-During each game tick (or frame update):
-$$\vec{Pos}_{new} = \vec{Pos}_{current} + (\vec{D} \times \text{Speed}_{fleet} \times \Delta t)$$
+Logical movement is **strictly tick-driven** (dispatched by `FleetManager` on `TickManager.TickUpdateSignal`) so simulation speed, pausing, and headless unit tests remain completely deterministic:
+$$\vec{Pos}_{new} = \vec{Pos}_{current} + (\vec{D} \times \text{Speed}_{fleet})$$
 
-When $\|\vec{Target} - \vec{Pos}\| \le \text{ArrivalThreshold}$, the fleet arrives:
+When $\|\vec{Target} - \vec{Pos}\| \le \text{Speed}_{fleet}$ (or $\le \text{ArrivalThreshold}$), the fleet snaps to the target star and arrives:
 - State transitions to `In Orbit` at the target star.
-- An `Arrival` event is published (notifying Chronicle and AI).
-- Any queued orders (e.g., `Colonize`, `Guard`, `Attack`) are triggered.
+- An `Arrival` signal/event is emitted (notifying Chronicle and AI).
+- Any queued arrival order (e.g., `Colonize`, `Guard`, `Attack`) is executed automatically.
+
+*(Visual rendering may optionally interpolate smoothly between ticks in `_Process` without affecting logical tick state.)*
 
 ---
 
@@ -148,20 +163,20 @@ CargoCapacity: 5000 (Colonists & Initial Building Material)
 SensorRange: 150.0
 ProductionCost: 150 SPP
 ResourceCost: 1,500 Ore, 500 Money
-SpecialAbilities: ["Colonize"]
+SpecialAbilities: [ShipAbility.Colonize]
 ```
 
 ### 7.2. Colonization Sequence
-1. **AI / Player Directive**: Target an unowned star discovered within sensor range.
-2. **Dispatch**: Form a fleet with the Ark-Class Colony Ship and issue order `MoveTo(targetStar)`.
-3. **Transit**: Fleet navigates in a straight line to `targetStar`.
+1. **AI / Player Directive**: Target the nearest unowned star (full map visibility in Phase 2; Fog of War discovery deferred to a later phase).
+2. **Dispatch**: Issue a `Colonize` order to an idle fleet containing a ship with `ShipAbility.Colonize` targeting `targetStar`.
+3. **Transit**: Fleet navigates in a straight line to `targetStar`, advancing each game tick.
 4. **Execution**:
-   - Fleet reaches orbit of unowned star.
-   - System confirms star is unowned (`star.OwningEmpire == null`).
+   - Fleet reaches orbit of `targetStar`.
+   - System confirms star is still unowned (`star.OwningEmpire == null`). If another empire claimed it mid-transit, the colonization order aborts gracefully and the fleet remains idle in orbit.
    - Colony Ship executes `Colonize`:
      - Ship is consumed.
-     - `star.OwningEmpire = empire`.
-     - Initial population established (e.g., 5,000 colonists).
+     - `empire.AddStar(targetStar)` claims ownership and updates star visuals/color.
+     - Initial population established (e.g., `CargoCapacity` / 5,000 colonists).
      - Chronicle event recorded: *"{empire} has established a new colony on {star}."*
      - If the fleet has no remaining ships, the fleet node is cleanly removed.
 
@@ -171,22 +186,19 @@ SpecialAbilities: ["Colonize"]
 
 To make the AI capable of natural expansion, Phase 2 integrates the ship system into our GOAP architecture:
 
-1. **New Goals**:
-   - `Goal_ColonizeStar`: Evaluates uncolonized stars within reach and sets a goal to claim the best candidate.
+1. **Goals**:
+   - `BuildShipyardGoal`: Prioritizes constructing a shipyard once basic economy is active (already implemented).
+   - `ColonizeStarGoal`: Evaluates whether uncolonized stars exist and drives the empire to expand its owned star count.
 
-2. **New GOAP Actions**:
-   - `Action_BuildShipyard`:
-     - *Preconditions*: Star owned, sufficient Ore/Money, star lacks shipyard.
-     - *Effects*: Star has shipyard.
-   - `Action_BuildColonyShip`:
-     - *Preconditions*: Has star with shipyard, sufficient Ore/Money.
-     - *Effects*: Has available colony ship.
-   - `Action_MoveFleetToStar`:
-     - *Preconditions*: Has fleet with colony ship, target star is uncolonized.
-     - *Effects*: Fleet in orbit at target star.
-   - `Action_ColonizeStar`:
-     - *Preconditions*: Fleet with colony ship in orbit at uncolonized star.
-     - *Effects*: Star is owned, territory expanded.
+2. **GOAP Actions**:
+   - `BuildImprovementAction` *(existing generic action)*: Handles building shipyards (and all other improvements) dynamically via `ResourceType.ShipyardProduction`. No dedicated `Action_BuildShipyard` is needed.
+   - `BuildColonyShipAction`:
+     - *Preconditions*: Has star with shipyard (`HasShipyard` / `Production_ShipyardProduction > 0`), sufficient material resources (`ResourceCosts`), no idle/pending colony ship already available.
+     - *Effects*: `HasColonyShip = true` (fire-and-forget queue command to the empire's shipyard).
+   - `ColonizeAction`:
+     - *Preconditions*: `HasIdleColonyShip == true` (or `HasColonyShip == true` during planning), `HasUnownedStars == true`.
+     - *Effects*: `OwnedStarsCount + 1`, `HasColonyShip = false`.
+     - *Execution*: Dispatches an idle colony ship fleet to the nearest unowned star with a `Colonize` arrival order; the fleet handles multi-tick transit and colonization autonomously.
 
 ---
 

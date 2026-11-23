@@ -138,31 +138,34 @@ public partial class EmpireTests : Node
         var empire = CreateTestEmpire();
         var star = empire.HomeStar;
         
-        // 1. Test with 250 population -> Should produce 2 of each
+        // 1. Test with 250 population -> Should produce 2 of each stockpileable resource, 0 for non-stockpileable
         star.StarPopulation = 250;
         empire.UpdateTick(1);
         
         foreach (ResourceType type in Enum.GetValues(typeof(ResourceType)))
         {
-            Assert(empire.ResourceStockpiles[type] == 2, $"Resource {type} should be 2 for 250 population.");
+            long expected = type.IsStockpileable() ? 2 : 0;
+            Assert(empire.ResourceStockpiles[type] == expected, $"Resource {type} should be {expected} for 250 population.");
         }
 
-        // 2. Test with 50 population -> Should produce 0 more (total remains 2)
+        // 2. Test with 50 population -> Should produce 0 more
         star.StarPopulation = 50;
         empire.UpdateTick(2);
         
         foreach (ResourceType type in Enum.GetValues(typeof(ResourceType)))
         {
-            Assert(empire.ResourceStockpiles[type] == 2, $"Resource {type} should still be 2 after adding 50 pop production.");
+            long expected = type.IsStockpileable() ? 2 : 0;
+            Assert(empire.ResourceStockpiles[type] == expected, $"Resource {type} should still be {expected} after adding 50 pop production.");
         }
 
-        // 3. Test with 1000 population -> Should produce 10 more (total 12)
+        // 3. Test with 1000 population -> Should produce 10 more for stockpileable resources
         star.StarPopulation = 1000;
         empire.UpdateTick(3);
         
         foreach (ResourceType type in Enum.GetValues(typeof(ResourceType)))
         {
-            Assert(empire.ResourceStockpiles[type] == 12, $"Resource {type} should be 12 after adding 1000 pop production.");
+            long expected = type.IsStockpileable() ? 12 : 0;
+            Assert(empire.ResourceStockpiles[type] == expected, $"Resource {type} should be {expected} after adding 1000 pop production.");
         }
     }
 
