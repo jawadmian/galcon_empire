@@ -41,7 +41,7 @@ To run an individual test suite:
 .\addons\gdUnit4\runtest.cmd --godot_binary "E:\Tools\Godot_v4.7.1-stable_mono_win64\Godot_v4.7.1-stable_mono_win64_console.exe" -a res://Tests/MyTestSuite.cs
 ```
 
-*(Optional fallback for standalone test scenes: `& "E:\Tools\Godot_v4.7.1-stable_mono_win64\Godot_v4.7.1-stable_mono_win64_console.exe" --headless res://Tests/EmpireTests.tscn --quit`)*
+All 9 test suites under `res://Tests/` (`BlackboardTests`, `CameraControllerTest`, `ChronicleManagerTest`, `EmpireInfoBoxTest`, `EmpireTests`, `GoapPlannerTests`, `ShipSystemTests`, `SpaceBackgroundTest`, `StarInfoBoxTest`) use GdUnit4 `[TestSuite]` and run together in a single CLI invocation.
 
 ---
 
@@ -130,10 +130,10 @@ public partial class EmpireSimulationTest
         // Grant ore to stockpile
         _testEmpire.ResourceStockpiles[ResourceType.Ore] = 100;
 
-        bool started = _testEmpire.RequestConstruction(improvement, _testStar);
+        _testEmpire.QueueImprovement(improvement, _testStar);
+        _testEmpire.UpdateTick(1);
 
-        AssertThat(started).IsTrue();
-        AssertThat(_testEmpire.ResourceStockpiles[ResourceType.Ore]).IsEqual(50);
+        AssertThat(_testEmpire.ResourceStockpiles[ResourceType.Ore]).IsEqual(50L);
         
         improvement.Dispose();
     }

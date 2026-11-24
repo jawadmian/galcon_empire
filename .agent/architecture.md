@@ -1,115 +1,62 @@
 # Technical Architecture Reference
 
-This document details the architectural patterns, simulation flow, manager lifecycles, and data contracts of **Galcon Empire**.
+This document provides the cross-cutting architectural overview of **Galcon Empire**: the simulation tick pipeline, Autoload vs. scene managers, and system-wide invariants. For file-level details of any specific area, see the dedicated docs under `.agent/subsystems/`.
 
 ---
 
 ## 1. Simulation Pipeline & The Tick Loop
 
-The simulation is **tick-driven**, decoupled from real-time rendering delta. This enables flexible speed adjustments, deterministic calculations, and easy simulation pausing.
+The simulation is **strictly tick-driven**, decoupled from real-time rendering `delta`. This enables flexible simulation speeds, pausing, and deterministic headless tests.
 
 ```
-+-------------------------------------------------------------+
-|                 TickManager (Autoload)                      |
-|  - Tracks real-time delta until TickUpdateInterval reached   |
-|  - Increments tickCount                                     |
-|  - Calls StarManager.Instance.UpdateTick()                  |
-|  - Emits TickUpdateSignal(tickCount)                        |
-+------------------------------+------------------------------+
-                               |
-            +------------------+------------------+
-            |                                     |
-            v                                     v
-+-----------------------+             +-----------------------+
-|     StarManager       |             |     EmpireManager     |
-| - Loops all Stars     |             | - Listens to tick     |
-| - Updates population  |             | - Progresses build    |
-| - Sums improvement    |             |   queues              |
-|   resource output     |             | - Triggers advisor AI |
-|                       |             | - Updates stockpiles  |
-+-----------------------+             +-----------------------+
++-----------------------------------------------------------------------+
+|                       TickManager (Autoload)                          |
+|  - Accumulates delta until TickUpdateInterval reached                 |
+|  - Increments tickCount                                               |
+|  - Calls StarManager.Instance.UpdateTick()                            |
+|  - Emits TickUpdateSignal(tickCount)                                  |
++-------+-------------------+-------------------+-------------------+---+
+        |                   |                   |                   |
+        v                   v                   v                   v
++---------------+   +---------------+   +---------------+   +---------------+
+| EmpireManager |   |   AIManager   |   | FleetManager  |   |   UI Panels   |
+| - Economy &   |   |  (Autoload)   |   |  (Autoload)   |   | - EmpiresList |
+|   food/pop    |   | - Time-slices |   | - Advances    |   | - EmpireInfo  |
+| - Building &  |   |   GoapAdvisor |   |   fleets per  |   | - StarInfo    |
+|   ship queues |   |   updates in  |   |   tick & runs |   |   live values |
+| - Sensor sync |   |   _Process()  |   |   colonize    |   |               |
++---------------+   +---------------+   +---------------+   +---------------+
 ```
 
-### Execution Flow per Tick:
-1. **Clock Advance**: `TickManager` accumulates `delta`. When `_tickUpdateTimer >= TickUpdateInterval`, `tickCount` increments.
-2. **Star System Update**: `StarManager.Instance.UpdateTick()` iterates through registered `Star` instances:
-   - Evaluates population dynamics.
-   - Calculates resource yields based on active `ImprovementResource` items attached to each star.
-3. **Empire Orchestration**:
-   - `Empire` advances its active construction: decrements remaining build time for queued `ImprovementResource` items.
-   - Upon construction completion, the improvement is added to the target `Star`.
-   - Resource stockpiles are credited with star production.
-   - Advisor AI evaluates recommendations for idle build queues.
+---
+
+## 2. Global Autoloads vs. Scene Managers
+
+| Manager | Registration | Path | Primary Responsibility |
+| :--- | :--- | :--- | :--- |
+| `TickManager` | Autoload | `res://Gameplay/Managers/tick_manager.tscn` | Simulation clock and `TickUpdateSignal` publisher. |
+| `AIManager` | Autoload | `res://Gameplay/Managers/AIManager.cs` | Spreads `GoapAdvisor.UpdateAI()` calls across frames to prevent CPU spikes. |
+| `ChronicleManager` | Autoload | `res://Gameplay/Managers/ChronicleManager.cs` | Thread-safe SQLite historical event store (`res://saves/chronicle.db`). |
+| `FleetManager` | Autoload | `res://Gameplay/Managers/FleetManager.cs` | Loads `ShipDesignResource` blueprints from `res://Data/Ships` and drives tick-based fleet movement. |
+| `StarManager` | Scene (`galaxy_spawner.tscn`) | `res://Gameplay/Managers/star_manager.tscn` | Procedural star placement, spatial/unowned star queries, star tick propagation. |
+| `EmpireManager` | Scene (`galaxy_spawner.tscn`) | `res://Gameplay/Managers/empire_manager.tscn` | Loads `ImprovementResource` blueprints from `res://Data/Improvements`, spawns empires, and forwards ticks. |
 
 ---
 
-## 2. Manager Roles & Singletons
+## 3. Subsystem Reference Map
 
-All managers inherit from `Node` and utilize singleton instances with defensive initialization. We want to use a singleton pattern to access the managers from anywhere in the codebase without passing references around. Managers should be declared as Autoloads so that they are always available.
-
-### `TickManager` (Autoload)
-- **Path**: `res://Gameplay/Managers/tick_manager.tscn`
-- **Role**: Global heart rate of the game. Dispatches `TickUpdateSignal`.
-- **Properties**:
-  - `TickUpdateInterval` (default: 10.0s, adjustable for simulation acceleration).
-  - `tickCount`: Total elapsed simulation ticks.
-
-### `EmpireManager`
-- **Path**: `res://Gameplay/Managers/empire_manager.tscn`
-- **Role**:
-  - Manages the collection of all spawned `Empire` nodes.
-  - Loads improvement resources dynamically from `res://Data/Improvements`.
-  - Exposes `AvailableImprovements` catalog (`IReadOnlyList<ImprovementResource>`).
-
-### `StarManager`
-- **Path**: `res://Gameplay/Managers/star_manager.tscn`
-- **Role**:
-  - Registry for all `Star` nodes in the galaxy.
-  - Facilitates spatial queries (nearest stars, star ownership).
-  - Drives per-tick star state updates.
+Deep-dive documentation is split by subsystem:
+- [Simulation, Galaxy, Stars & Economy](subsystems/simulation_and_economy.md)
+- [Ships, Fleets, Shipyards & Colonization](subsystems/ships_and_fleets.md)
+- [Pluggable AI & GOAP Planning](subsystems/ai_and_goap.md)
+- [Chronicle Event History & SQLite Persistence](subsystems/chronicle_and_persistence.md)
+- [UI Panels, HUD, Camera & Space Visuals](subsystems/ui_and_camera.md)
 
 ---
 
-## 3. Core Entities
+## 4. Architectural Invariants
 
-### `Empire` (`res://Gameplay/Empire.cs`)
-- **State**:
-  - `EmpireName`: Unique string identifier.
-  - `HomeStar`: Initial star system assigned at generation.
-  - `ControlledStars`: List of stars owned by this empire.
-  - `ResourceStockpiles`: `Dictionary<ResourceType, int>` storing `Food`, `Ore`, and `Money`.
-  - `ActiveBuildQueue`: Tracks the `ImprovementResource` currently being built, target star, and remaining ticks.
-  - `Advisor`: Implements `IAdvisor` (e.g. `BasicAdvisor`) for automated economic decision-making.
-
-### `Star` (`res://Gameplay/Star.cs`)
-- **State**:
-  - `StarName`: System name.
-  - `Population`: Current population count.
-  - `Improvements`: List of installed `ImprovementResource` instances.
-  - `Position`: Spatial coordinate in the galaxy.
-
----
-
-## 4. Data-Driven Resource System
-
-Gameplay content is defined via custom Godot `Resource` classes in `res://Data/`:
-
-### `ImprovementResource` (`res://Data/ImprovementResource.cs`)
-- `ImprovementName` (`string`)
-- `ImprovementDescription` (`string`)
-- `BuildTime` (`int` in ticks)
-- `ResourceOutput` (`Dictionary<ResourceType, int>`): Output produced per tick.
-- `BuildCost` (`Dictionary<ResourceType, int>`): Cost deducted upon queuing construction.
-
-### `ResourceType` Enum
-- `Food`: Sustains and grows population.
-- `Ore`: Required for physical construction and industry.
-- `Money`: Economic maintenance, trade, and diplomacy.
-
----
-
-## 5. Architectural Invariants & Agent Guidelines
-
-1. **Loose Coupling via Signals**: Systems should never directly mutate other systems without clear boundaries. Prefer emitting signals when state changes.
-2. **Defensive Singleton Handling**: When writing or testing unit logic, always assume singletons might be null or unattached to the tree.
-3. **Immutability of Data Definitions**: Never mutate `ImprovementResource` fields at runtime; resources are shared templates. State belonging to an entity (e.g., remaining build time) belongs on the `Empire` or `Star`, not in the resource asset.
+1. **Loose Coupling via Signals**: Prefer Godot signals (`TickUpdateSignal`, `FleetArrivedSignal`, `StarColonizedSignal`, `EventRecorded`) over direct cross-system mutation.
+2. **Defensive Singleton Handling**: Always guard singleton access with `HasInstance` (or null checks) so entities remain testable in isolation without booting the full scene tree.
+3. **Immutability of Data Definitions**: Never mutate `ImprovementResource` or `ShipDesignResource` properties at runtime; resources are shared immutable templates.
+4. **Stockpileable vs. Capacity Resources**: Always consult `ResourceTypeExtensions.IsStockpileable()` rather than assuming all `ResourceType` values accumulate globally.
