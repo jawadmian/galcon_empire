@@ -14,6 +14,10 @@ public class Ship : IChronicleEntity
     public int CommissionedTick { get; set; }
     public string BuiltAtStarName { get; set; } = string.Empty;
     public Fleet CurrentFleet { get; set; }
+    public int LoadedColonists { get; set; } = 0;
+
+    public int RequiredColonists =>
+        HasAbility(ShipAbility.Colonize) ? (CargoCapacity > 0 ? CargoCapacity : 5000) : 0;
 
     // IChronicleEntity implementation
     public string ChronicleId => $"ship:{ShipId}";

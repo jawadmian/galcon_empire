@@ -52,6 +52,29 @@ public partial class Star : Node2D, IChronicleEntity
     public const int MaxSystemSize = 12;
     public const int HomeSystemSize = 10;
     public const int PopulationPerSystemSize = 20000;
+    public const int MinPopulationAfterColonistDeparture = 5000;
+
+    /// <summary>
+    /// Returns true if this star has enough population to spare the requested colonists
+    /// while keeping at least MinPopulationAfterColonistDeparture (5,000) citizens.
+    /// </summary>
+    public bool CanSupportColonistDeparture(int colonistCount) =>
+        _population >= colonistCount + MinPopulationAfterColonistDeparture;
+
+    /// <summary>
+    /// Deducts up to requestedCount colonists from this star, never reducing population
+    /// below MinPopulationAfterColonistDeparture. Returns the actual number taken.
+    /// </summary>
+    public int TakeColonists(int requestedCount)
+    {
+        if (requestedCount <= 0)
+            return 0;
+
+        int available = Math.Max(0, _population - MinPopulationAfterColonistDeparture);
+        int taken = Math.Min(requestedCount, available);
+        StarPopulation = _population - taken;
+        return taken;
+    }
 
     /// <summary>
     /// Sets the star's system size (clamped to 3..12) and scales both building slots

@@ -45,6 +45,8 @@ public partial class Fleet : Node2D, IChronicleEntity
     [Export]
     public float ArrivalThreshold { get; set; } = 5.0f;
 
+    public const float OrbitRadius = 34.0f;
+
     [Signal]
     public delegate void FleetArrivedSignalEventHandler(Fleet fleet, Star destination);
 
@@ -141,8 +143,41 @@ public partial class Fleet : Node2D, IChronicleEntity
                 : $"Independent Fleet {FleetId}";
         }
 
+        if (startingStar != null)
+        {
+            Position = GetOrbitPosition(startingStar);
+        }
+
         Name = $"Fleet_{FleetId}";
         QueueRedraw();
+    }
+
+    /// <summary>
+    /// Computes an offset position beside the orbited star so fleets don't sit directly on top of it.
+    /// </summary>
+    public Vector2 GetOrbitPosition(Star star)
+    {
+        if (star == null)
+            return Position;
+
+        Vector2 starPos = star.WorldPosition ?? star.Position;
+        int siblingIndex = 0;
+        if (FleetManager.HasInstance)
+        {
+            var orbiting = FleetManager.Instance.GetFleetsOrbitingStar(star);
+            for (int i = 0; i < orbiting.Count; i++)
+            {
+                if (orbiting[i] == this)
+                {
+                    siblingIndex = i;
+                    break;
+                }
+                siblingIndex++;
+            }
+        }
+
+        float angle = -0.45f + siblingIndex * (Mathf.Pi / 3.0f);
+        return starPos + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * OrbitRadius;
     }
 
     public void AddShip(Ship ship)
@@ -215,6 +250,18 @@ public partial class Fleet : Node2D, IChronicleEntity
             return;
         }
 
+        if (orderType == FleetOrderType.Colonize && OrbitingStar != null && GodotObject.IsInstanceValid(OrbitingStar))
+        {
+            foreach (var ship in _ships)
+            {
+                if (ship.HasAbility(ShipAbility.Colonize) && ship.LoadedColonists == 0)
+                {
+                    int taken = OrbitingStar.TakeColonists(ship.RequiredColonists);
+                    ship.LoadedColonists = taken;
+                }
+            }
+        }
+
         OrbitingStar = null;
         State = FleetState.InTransit;
 
@@ -230,6 +277,7 @@ public partial class Fleet : Node2D, IChronicleEntity
             "Fleet Dispatched",
             "{fleet} departed for {star} (Order: {order}).",
             targetStar,
+            EventPriority.Normal,
             ("order", orderType.ToString())
         );
 
@@ -297,6 +345,7 @@ public partial class Fleet : Node2D, IChronicleEntity
         OrbitingStar = arrivedStar;
         DestinationStar = null;
         State = FleetState.InOrbit;
+        Position = GetOrbitPosition(arrivedStar);
 
         FleetOrderType pendingOrder = CurrentOrder;
         CurrentOrder = FleetOrderType.None;
@@ -307,12 +356,24 @@ public partial class Fleet : Node2D, IChronicleEntity
             EventCategory.Military,
             "Fleet Arrived",
             "{fleet} arrived in orbit at {star}.",
-            arrivedStar
+            arrivedStar,
+            EventPriority.Normal
         );
 
         if (pendingOrder == FleetOrderType.Colonize)
         {
             ColonizeCurrentStar();
+        }
+        else if (pendingOrder == FleetOrderType.MoveTo && arrivedStar != null && arrivedStar.OwningEmpire == OwningEmpire)
+        {
+            foreach (var ship in _ships)
+            {
+                if (ship.LoadedColonists > 0)
+                {
+                    arrivedStar.StarPopulation += ship.LoadedColonists;
+                    ship.LoadedColonists = 0;
+                }
+            }
         }
 
         QueueRedraw();
@@ -342,7 +403,8 @@ public partial class Fleet : Node2D, IChronicleEntity
                 EventCategory.Political,
                 "Colonization Aborted",
                 "{fleet} aborted colonization of {star} (already claimed).",
-                OrbitingStar
+                OrbitingStar,
+                EventPriority.High
             );
             if (!TryRedirectColonization())
             {
@@ -364,7 +426,10 @@ public partial class Fleet : Node2D, IChronicleEntity
         OwningEmpire.AddStar(targetStar);
         targetStar.StarNameColor = OwningEmpire.EmpireColor;
 
-        int initialPopulation = colonyShip.CargoCapacity > 0 ? colonyShip.CargoCapacity : 5000;
+        int initialPopulation = colonyShip.LoadedColonists > 0
+            ? colonyShip.LoadedColonists
+            : (colonyShip.CargoCapacity > 0 ? colonyShip.CargoCapacity : 5000);
+        colonyShip.LoadedColonists = 0;
         if (targetStar.StarPopulation < initialPopulation)
         {
             targetStar.StarPopulation = initialPopulation;
@@ -374,7 +439,7 @@ public partial class Fleet : Node2D, IChronicleEntity
             $"Empire {OwningEmpire.EmpireName} established a new colony on {targetStar.StarName} (Pop: {targetStar.StarPopulation})."
         );
 
-        ChronicleEvent.Create(EventCategory.Political, "New Colony Established")
+        ChronicleEvent.Create(EventCategory.Political, "New Colony Established", EventPriority.High)
             .Involving(OwningEmpire, isPrimary: true)
             .Involving(targetStar)
             .Involving(this)
@@ -438,7 +503,8 @@ public partial class Fleet : Node2D, IChronicleEntity
             EventCategory.Military,
             "Returning Home",
             "{fleet} found no valid targets and is returning to {star}.",
-            homeTarget
+            homeTarget,
+            EventPriority.Normal
         );
         OrderMoveTo(homeTarget);
         return true;
@@ -449,10 +515,11 @@ public partial class Fleet : Node2D, IChronicleEntity
         string title,
         string template,
         Star relatedStar,
+        EventPriority priority = EventPriority.Normal,
         params (string key, string value)[] args
     )
     {
-        var builder = ChronicleEvent.Create(category, title)
+        var builder = ChronicleEvent.Create(category, title, priority)
             .Involving(this, isPrimary: true);
 
         if (OwningEmpire != null)

@@ -281,7 +281,7 @@ public partial class Empire : Node, IChronicleEntity
             $"Empire {EmpireName} started construction of {request.Improvement.ImprovementName} at {request.TargetStar.StarName}. Build time: {request.Improvement.BuildTime} ticks."
         );
 
-        ChronicleEvent.Create(EventCategory.Economic, "Construction Commenced")
+        ChronicleEvent.Create(EventCategory.Economic, "Construction Commenced", EventPriority.Low)
             .Involving(this, isPrimary: true)
             .Involving(request.TargetStar)
             .WithTemplate("{empire} commenced construction of [b]{improvement}[/b] on {star}.")
@@ -353,35 +353,57 @@ public partial class Empire : Node, IChronicleEntity
         return HasShipyardPending();
     }
 
-    /// <summary>
-    /// Returns the owned star with the highest local ShipyardProduction capacity, or null if none.
-    /// </summary>
-    public Star GetBestShipyardStar()
+    public static int GetRequiredColonists(ShipDesignResource design)
     {
+        if (design == null || !design.HasAbility(ShipAbility.Colonize))
+            return 0;
+
+        return design.CargoCapacity > 0 ? design.CargoCapacity : 5000;
+    }
+
+    /// <summary>
+    /// Returns the owned star with the highest local ShipyardProduction capacity,
+    /// optionally filtering to stars that can support the design's colonist requirement.
+    /// </summary>
+    public Star GetBestShipyardStar(ShipDesignResource design = null)
+    {
+        int requiredColonists = GetRequiredColonists(design);
         Star best = null;
         int bestSpp = 0;
         foreach (var star in _ownedStars)
         {
-            if (star != null && star.StarShipyardProduction > bestSpp)
-            {
-                bestSpp = star.StarShipyardProduction;
-                best = star;
-            }
+            if (star == null || star.StarShipyardProduction <= bestSpp)
+                continue;
+
+            if (requiredColonists > 0 && !star.CanSupportColonistDeparture(requiredColonists))
+                continue;
+
+            bestSpp = star.StarShipyardProduction;
+            best = star;
         }
         return best;
     }
 
     /// <summary>
-    /// Requests to construct a ship at a star with a shipyard (auto-selects best shipyard if star is null).
+    /// Requests to construct a ship at a star with a shipyard (auto-selects best eligible shipyard if star is null).
     /// </summary>
     public bool QueueShip(ShipDesignResource design, Star star = null)
     {
         if (design == null)
             return false;
 
-        Star target = star ?? GetBestShipyardStar();
+        Star target = star ?? GetBestShipyardStar(design);
         if (target == null || !target.HasShipyard)
             return false;
+
+        int requiredColonists = GetRequiredColonists(design);
+        if (requiredColonists > 0 && !target.CanSupportColonistDeparture(requiredColonists))
+        {
+            GD.Print(
+                $"Empire {EmpireName} cannot queue {design.DesignName} at {target.StarName}: population ({target.StarPopulation}) too low to leave {Star.MinPopulationAfterColonistDeparture} after {requiredColonists} colonists depart."
+            );
+            return false;
+        }
 
         GD.Print($"Empire {EmpireName} requested {design.DesignName} at {target.StarName}.");
         _shipBuildRequests.Add(new ShipBuildRequest { Design = design, TargetStar = target });
@@ -600,7 +622,7 @@ public partial class Empire : Node, IChronicleEntity
             $"Empire {EmpireName} completed ship {ship.ShipName} ({ship.ClassName}) at {star.StarName}."
         );
 
-        ChronicleEvent.Create(EventCategory.Military, "Ship Commissioned")
+        ChronicleEvent.Create(EventCategory.Military, "Ship Commissioned", EventPriority.High)
             .Involving(this, isPrimary: true)
             .Involving(star)
             .Involving(fleet)
@@ -692,7 +714,10 @@ public partial class Empire : Node, IChronicleEntity
                 );
                 item.TargetStar.AddImprovement(item.Improvement);
 
-                ChronicleEvent.Create(EventCategory.Economic, "Facility Completed")
+                EventPriority facilityPriority = item.Improvement.ResourceOutput.ContainsKey(ResourceType.ShipyardProduction)
+                    ? EventPriority.High
+                    : EventPriority.Normal;
+                ChronicleEvent.Create(EventCategory.Economic, "Facility Completed", facilityPriority)
                     .Involving(this, isPrimary: true)
                     .Involving(item.TargetStar)
                     .WithTemplate("{empire} completed construction of [b]{improvement}[/b] on {star}.")

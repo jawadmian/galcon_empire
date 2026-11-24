@@ -315,4 +315,39 @@ public partial class StarInfoBoxTest
 
         starInstance.QueueFree();
     }
+
+    [TestCase]
+    public void TestOrbitingShipsDisplayedInStarInfoBox()
+    {
+        var empire = new Empire { EmpireName = "Starfleet", EmpireColor = Colors.Cyan };
+        empire.AddStar(_star);
+
+        var design = new ShipDesignResource
+        {
+            DesignId = "colony_ship_v1",
+            DesignName = "Ark-Class Colony Ship",
+            Speed = 40f,
+            MaxHitPoints = 100,
+        };
+        var ship = new Ship(design) { ShipName = "Beluga", ClassName = "Beluga-Class" };
+        var fleet = new Fleet();
+        fleet.Initialize(empire, _star, ship);
+        empire.RegisterFleet(fleet);
+
+        _infoBox._Ready();
+        _infoBox.DisplayStar(_star);
+
+        var orbitingTitle = _infoBox.GetNodeOrNull<Label>("%OrbitingTitle");
+        var orbitingList = _infoBox.GetNodeOrNull<VBoxContainer>("%OrbitingList");
+        AssertThat(orbitingTitle).IsNotNull();
+        AssertThat(orbitingList).IsNotNull();
+        AssertThat(orbitingTitle.Text).IsEqual("ORBITING SHIPS (1)");
+        AssertThat(orbitingList.GetChildCount()).IsEqual(1);
+        var btn = orbitingList.GetChild(0) as Button;
+        AssertThat(btn).IsNotNull();
+        AssertThat(btn.Text).Contains("Beluga");
+
+        fleet.Free();
+        empire.Free();
+    }
 }

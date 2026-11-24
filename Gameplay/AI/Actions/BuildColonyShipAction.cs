@@ -21,8 +21,9 @@ public class BuildColonyShipAction : GoapAction
             state.GetValue<bool>("HasShipyard", false)
             || state.GetValue<long>($"Production_{ResourceType.ShipyardProduction}", 0) > 0;
         bool hasColonyShip = state.GetValue<bool>("HasColonyShip", false);
+        bool hasPopForColonyShip = state.GetValue<bool>("HasPopForColonyShip", true);
 
-        if (!hasShipyard || hasColonyShip)
+        if (!hasShipyard || hasColonyShip || !hasPopForColonyShip)
             return false;
 
         if (_design != null && _design.ResourceCosts.Count > 0)

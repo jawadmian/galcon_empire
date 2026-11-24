@@ -71,7 +71,7 @@ public partial class ShipSystemTests
     public void TestPerStarShipConstructionQueue()
     {
         var empire = new Empire { EmpireName = "Builders" };
-        var star = new Star { StarName = "Dockyard", Position = new Vector2(100, 100) };
+        var star = new Star { StarName = "Dockyard", Position = new Vector2(100, 100), StarPopulation = 15000 };
         empire.HomeStar = star;
         star.AddImprovement(CreateShipyardImprovement(25));
 
@@ -83,10 +83,10 @@ public partial class ShipSystemTests
         AssertThat(queued).IsTrue();
         AssertThat(empire.HasShipPending(ShipAbility.Colonize)).IsTrue();
 
-        // Tick 1: starts construction, deducts resources, applies first 25 SPP (25/150)
+        // Tick 1: starts construction, deducts 1500 Ore (500 left) + 150 Ore from 15,000 pop = 650
         empire.UpdateTick(1);
-        AssertThat(empire.ResourceStockpiles[ResourceType.Ore]).IsEqual(500L);
-        AssertThat(empire.ResourceStockpiles[ResourceType.Money]).IsEqual(500L);
+        AssertThat(empire.ResourceStockpiles[ResourceType.Ore]).IsEqual(650L);
+        AssertThat(empire.ResourceStockpiles[ResourceType.Money]).IsEqual(650L);
         AssertThat(empire.ShipBuildQueue.Count).IsEqual(1);
         AssertThat(empire.OwnedFleets.Count).IsEqual(0);
 
@@ -133,25 +133,25 @@ public partial class ShipSystemTests
         // Fleet speed must match slowest ship (40)
         AssertThat(fleet.FleetSpeed).IsEqual(40f);
 
+        // Fleet starts offset in orbit beside origin, not directly on top of the star
+        AssertThat(fleet.Position.DistanceTo(origin.Position)).IsEqualApprox(Fleet.OrbitRadius, 0.1f);
+
         bool arrived = false;
         fleet.FleetArrivedSignal += (f, dest) => arrived = dest == target;
 
         fleet.OrderMoveTo(target);
         AssertThat(fleet.State).IsEqual(FleetState.InTransit);
 
-        // Tick 1: (0,0) -> (40,0)
+        // Tick 1: moves 40u toward target from orbit offset
+        float dist0 = fleet.Position.DistanceTo(target.Position);
         fleet.UpdateTick();
-        AssertThat(fleet.Position.X).IsEqualApprox(40f, 0.01f);
+        float dist1 = fleet.Position.DistanceTo(target.Position);
+        AssertThat(dist1).IsLess(dist0);
         AssertThat(arrived).IsFalse();
 
-        // Tick 2: (40,0) -> (80,0)
+        // Tick 2: remaining distance <= 40 -> arrives in orbit beside target
         fleet.UpdateTick();
-        AssertThat(fleet.Position.X).IsEqualApprox(80f, 0.01f);
-        AssertThat(arrived).IsFalse();
-
-        // Tick 3: remaining distance 20 <= speed 40 -> snaps to (100,0) and arrives
-        fleet.UpdateTick();
-        AssertThat(fleet.Position.X).IsEqualApprox(100f, 0.01f);
+        AssertThat(fleet.Position.DistanceTo(target.Position)).IsEqualApprox(Fleet.OrbitRadius, 0.1f);
         AssertThat(fleet.State).IsEqual(FleetState.InOrbit);
         AssertThat(fleet.OrbitingStar).IsEqual(target);
         AssertThat(arrived).IsTrue();
@@ -167,7 +167,7 @@ public partial class ShipSystemTests
     {
         var empire = new Empire { EmpireName = "Pioneers", EmpireColor = Colors.Cyan };
         var home = new Star { StarName = "Home", Position = new Vector2(0, 0) };
-        var unowned = new Star { StarName = "Frontier", Position = new Vector2(60, 0) };
+        var unowned = new Star { StarName = "Frontier", Position = new Vector2(100, 0) };
         empire.HomeStar = home;
 
         var fleet = new Fleet();
@@ -176,11 +176,11 @@ public partial class ShipSystemTests
 
         fleet.OrderColonize(unowned);
 
-        // Tick 1: (40, 0)
+        // Tick 1: in transit
         fleet.UpdateTick();
         AssertThat(unowned.OwningEmpire).IsNull();
 
-        // Tick 2: arrives at (60, 0) and colonizes
+        // Tick 2: arrives and colonizes
         fleet.UpdateTick();
         AssertThat(unowned.OwningEmpire).IsEqual(empire);
         AssertThat(empire.OwnedStars.Count).IsEqual(2);
@@ -550,9 +550,10 @@ public partial class ShipSystemTests
             AssertThat(fleet.DestinationStar).IsEqual(primaryTarget);
             AssertThat(fleet.State).IsEqual(FleetState.InTransit);
 
-            // Tick 2: Fleet moves 40u toward Alpha (now at x=40)
+            // Tick 2: Fleet moves 40u toward Alpha
             fleet.UpdateTick();
-            AssertThat(fleet.Position).IsEqual(new Vector2(40, 0));
+            AssertThat(fleet.Position.DistanceTo(primaryTarget.Position))
+                .IsLess(homeA.Position.DistanceTo(primaryTarget.Position));
             AssertThat(fleet.State).IsEqual(FleetState.InTransit);
 
             // Empire B claims Alpha mid-flight!
@@ -612,10 +613,11 @@ public partial class ShipSystemTests
             fleet.OrderColonize(onlyTarget);
             AssertThat(fleet.State).IsEqual(FleetState.InTransit);
 
-            // Advance 2 ticks mid-flight (fleet reaches x = 80)
+            // Advance 2 ticks mid-flight
             fleet.UpdateTick();
             fleet.UpdateTick();
-            AssertThat(fleet.Position).IsEqual(new Vector2(80, 0));
+            float distMid = fleet.Position.DistanceTo(homeA.Position);
+            AssertThat(distMid).IsGreater(Fleet.OrbitRadius);
 
             // Rival claims the only remaining unowned star
             empireB.AddStar(onlyTarget);
@@ -625,11 +627,14 @@ public partial class ShipSystemTests
             AssertThat(fleet.DestinationStar).IsEqual(homeA);
             AssertThat(fleet.CurrentOrder).IsEqual(FleetOrderType.MoveTo);
             AssertThat(fleet.State).IsEqual(FleetState.InTransit);
-            AssertThat(fleet.Position).IsEqual(new Vector2(40, 0));
+            AssertThat(fleet.Position.DistanceTo(homeA.Position)).IsLess(distMid);
 
-            // Next tick: Fleet arrives safely back at Home
-            fleet.UpdateTick();
-            AssertThat(fleet.Position).IsEqual(homeA.Position);
+            // Subsequent ticks: Fleet arrives safely back in orbit beside Home
+            for (int t = 0; t < 5 && fleet.State == FleetState.InTransit; t++)
+            {
+                fleet.UpdateTick();
+            }
+            AssertThat(fleet.Position.DistanceTo(homeA.Position)).IsEqualApprox(Fleet.OrbitRadius, 0.1f);
             AssertThat(fleet.State).IsEqual(FleetState.InOrbit);
             AssertThat(fleet.OrbitingStar).IsEqual(homeA);
             AssertThat(fleet.IsIdle).IsTrue();
@@ -674,7 +679,8 @@ public partial class ShipSystemTests
             AssertThat(starA.OwningEmpire).IsEqual(empireA);
             AssertThat(fm.ActiveFleets.Count).IsEqual(1);
             AssertThat(fm.ActiveFleets[0]).IsEqual(fleetB);
-            AssertThat(fleetB.Position).IsEqual(new Vector2(40, 500));
+            AssertThat(fleetB.Position.DistanceTo(starB.Position))
+                .IsLess(homeB.Position.DistanceTo(starB.Position));
 
             // Tick 2 & 3: fleetB finishes its journey and colonizes starB
             fm.UpdateTick();
@@ -694,5 +700,49 @@ public partial class ShipSystemTests
             homeB.Free();
             starB.Free();
         }
+    }
+
+    [TestCase]
+    public void TestColonyShipPopulationCostAndMinimumRemaining()
+    {
+        var empire = new Empire { EmpireName = "Colonizers", EmpireColor = Colors.Cyan };
+        var shipyardStar = new Star { StarName = "Core", Position = new Vector2(0, 0), StarPopulation = 8000 };
+        var frontier = new Star { StarName = "NewWorld", Position = new Vector2(40, 0) };
+        empire.HomeStar = shipyardStar;
+        shipyardStar.AddImprovement(CreateShipyardImprovement(50));
+
+        var colonyDesign = CreateColonyShipDesign(sppCost: 50, speed: 40f);
+
+        // 8,000 pop is insufficient because 5,000 colonists would leave only 3,000 (< 5,000 min)
+        AssertThat(empire.QueueShip(colonyDesign, shipyardStar)).IsFalse();
+
+        // 12,000 pop is sufficient (12,000 >= 5,000 + 5,000)
+        shipyardStar.StarPopulation = 12000;
+        AssertThat(empire.QueueShip(colonyDesign, shipyardStar)).IsTrue();
+
+        // Dispatching a colony ship deducts 5,000 colonists from the departure star, leaving 7,000
+        var ship = new Ship(colonyDesign);
+        var fleet = new Fleet();
+        fleet.Initialize(empire, shipyardStar, ship);
+        empire.RegisterFleet(fleet);
+
+        fleet.OrderColonize(frontier);
+        AssertThat(shipyardStar.StarPopulation).IsEqual(7000);
+        AssertThat(ship.LoadedColonists).IsEqual(5000);
+
+        // Even if TakeColonists is called on a low-pop star, population never drops below 5,000
+        int partial = shipyardStar.TakeColonists(5000);
+        AssertThat(partial).IsEqual(2000);
+        AssertThat(shipyardStar.StarPopulation).IsEqual(Star.MinPopulationAfterColonistDeparture);
+
+        // Colonizing transfers the loaded colonists to the new colony
+        fleet.UpdateTick();
+        AssertThat(frontier.OwningEmpire).IsEqual(empire);
+        AssertThat(frontier.StarPopulation).IsEqual(5000);
+
+        if (GodotObject.IsInstanceValid(fleet)) fleet.Free();
+        empire.Free();
+        shipyardStar.Free();
+        frontier.Free();
     }
 }

@@ -62,7 +62,7 @@ public partial class FleetAndShipInfoBoxTest
     public void TestFleetAndShipChronicleLifecycleEvents()
     {
         var empire = new Empire { EmpireName = "Vanguard", EmpireColor = Colors.Cyan };
-        var home = new Star { StarName = "Sol", Position = new Vector2(0, 0) };
+        var home = new Star { StarName = "Sol", Position = new Vector2(0, 0), StarPopulation = 15000 };
         var frontier = new Star { StarName = "Proxima", Position = new Vector2(40, 0) };
         _createdNodes.Add(empire);
         _createdNodes.Add(home);
@@ -173,7 +173,18 @@ public partial class FleetAndShipInfoBoxTest
         AssertThat(shipButton).IsNotNull();
         AssertThat(shipButton.Text.Contains("#")).IsFalse();
         AssertThat(shipButton.ClipText).IsTrue();
+
+        // Condensed view defaults to High priority; toggling to Detailed shows Normal "Fleet Dispatched"
+        var filterBtn = box.GetNodeOrNull<Button>("%ChronicleFilterButton");
+        AssertThat(filterBtn).IsNotNull();
+        AssertThat(filterBtn.Text).IsEqual("VIEW: HIGH");
         AssertThat(chronicleList.GetChildCount()).IsEqual(1);
+        AssertThat((chronicleList.GetChild(0) as Label)?.Text).Contains("No recorded fleet events");
+
+        filterBtn.EmitSignal(Button.SignalName.Pressed);
+        AssertThat(filterBtn.Text).IsEqual("DETAILED: ALL");
+        AssertThat(chronicleList.GetChildCount()).IsEqual(1);
+        AssertThat((chronicleList.GetChild(0) as Label)?.Text).Contains("Fleet Dispatched");
     }
 
     [TestCase]
@@ -347,7 +358,15 @@ public partial class FleetAndShipInfoBoxTest
         AssertThat(statsLabel.Text).Contains("100/100");
         AssertThat(statsLabel.Text).Contains("40");
         AssertThat(abilitiesLabel.Text).Contains("Colonize");
+
+        var filterBtn = box.GetNodeOrNull<Button>("%ChronicleFilterButton");
+        AssertThat(filterBtn).IsNotNull();
+        AssertThat(filterBtn.Text).IsEqual("VIEW: HIGH");
+
+        filterBtn.EmitSignal(Button.SignalName.Pressed);
+        AssertThat(filterBtn.Text).IsEqual("DETAILED: ALL");
         AssertThat(chronicleList.GetChildCount()).IsEqual(1);
+        AssertThat((chronicleList.GetChild(0) as Label)?.Text).Contains("Fleet Dispatched");
     }
 
     [TestCase]

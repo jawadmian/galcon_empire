@@ -110,11 +110,24 @@ text = "ABILITIES: None"
 [node name="HSeparator2" type="HSeparator" parent="Background/ContentMargin/MainVBox" unique_id=1765854789]
 layout_mode = 2
 
-[node name="ChronicleHeader" type="Label" parent="Background/ContentMargin/MainVBox" unique_id=1177978742]
+[node name="ChronicleHeaderHBox" type="HBoxContainer" parent="Background/ContentMargin/MainVBox" unique_id=1895826864]
 layout_mode = 2
+
+[node name="ChronicleHeader" type="Label" parent="Background/ContentMargin/MainVBox/ChronicleHeaderHBox" unique_id=1177978742]
+layout_mode = 2
+size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.56078434, 0.6392157, 0.7490196, 1)
 theme_override_font_sizes/font_size = 11
 text = "SHIP CHRONICLE"
+
+[node name="ChronicleFilterButton" type="Button" parent="Background/ContentMargin/MainVBox/ChronicleHeaderHBox" unique_id=1835681119]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(118, 22)
+layout_mode = 2
+tooltip_text = "Cycle condensed / detailed Chronicle priority filter"
+theme_override_colors/font_color = Color(1, 0.84313726, 0, 1)
+theme_override_font_sizes/font_size = 10
+text = "VIEW: HIGH"
 
 [node name="ChronicleScroll" type="ScrollContainer" parent="Background/ContentMargin/MainVBox" unique_id=571482462]
 custom_minimum_size = Vector2(0, 160)

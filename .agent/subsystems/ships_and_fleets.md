@@ -28,8 +28,12 @@ This document maps ship blueprints, per-star shipyard queues, tick-driven straig
 3. **Advancing Per Tick**:
    - Adds `item.TargetStar.StarShipyardProduction` (local, non-stockpileable SPP) to `AccumulatedProduction`.
    - With a Tier 1 Orbital Shipyard (`25` SPP/tick), an Ark-Class Colony Ship (`150` SPP) completes in exactly `6` ticks.
-4. **Spawning**:
+4. **Spawning & Colonist Departure**:
    - `SpawnCompletedShip()` creates `new Ship(design)`, spawns a `Fleet` via `FleetManager.Instance.SpawnFleet(this, star, ship)` (with isolated fallback if `FleetManager.HasInstance == false`), registers it on `empire.OwnedFleets`, and records a `Military` Chronicle event (`"Ship Commissioned"`).
+   - `Empire.QueueShip()` requires a colony ship's shipyard star to have `StarPopulation >= requiredColonists + Star.MinPopulationAfterColonistDeparture` (`5,000` minimum remaining). `GoapAdvisor` checks `HasPopForColonyShip` before planning colony ship construction.
+   - When a colony fleet departs (`Fleet.IssueOrder(Colonize)`), `Star.TakeColonists()` deducts up to `Ship.RequiredColonists` while keeping at least `5,000` citizens on the departure star (`Ship.LoadedColonists`). Returning home unloads colonists back into the friendly star.
+5. **Visual Orbit Offset**:
+   - `Fleet.GetOrbitPosition(Star)` places orbiting fleets `OrbitRadius` (`34u`) to the side of the star (distributed around the ring for multiple fleets) rather than directly over the star center.
 
 ---
 

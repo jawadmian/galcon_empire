@@ -253,7 +253,7 @@ public partial class EmpireManager : Node
                     $"EmpireManager: Spawned '{empireInstance.EmpireName}' (Color: {empireInstance.EmpireColor}) with Home Star: {homeStar.StarName} at {homeStar.GlobalPosition}. Parent: {empireInstance.GetParent()?.Name}"
                 );
 
-                ChronicleEvent.Create(EventCategory.Political, "Empire Founded")
+                ChronicleEvent.Create(EventCategory.Political, "Empire Founded", EventPriority.High)
                     .Involving(empireInstance, isPrimary: true)
                     .Involving(homeStar)
                     .WithTemplate("The {empire} has been established, claiming {star} as its sovereign home system.")

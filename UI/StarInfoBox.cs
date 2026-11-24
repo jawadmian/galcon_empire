@@ -23,8 +23,11 @@ public partial class StarInfoBox : Control
 
     private Label _improvementsTitle;
     private VBoxContainer _improvementsList;
+    private Label _orbitingTitle;
+    private VBoxContainer _orbitingList;
     private int _lastImprovementsCount = -1;
     private int _lastActiveConstructionCount = -1;
+    private int _lastOrbitingShipsCount = -1;
 
     // Window dragging
     private bool _isDraggingWindow = false;
@@ -70,6 +73,8 @@ public partial class StarInfoBox : Control
         _improvementsTitle = GetNodeOrNull<Label>("%ImprovementsTitle")
             ?? GetNodeOrNull<Label>("Background/ContentMargin/MainVBox/ImprovementsVBox/ImprovementsTitle");
         _improvementsList = GetNodeOrNull<VBoxContainer>("%ImprovementsList");
+        _orbitingTitle = GetNodeOrNull<Label>("%OrbitingTitle");
+        _orbitingList = GetNodeOrNull<VBoxContainer>("%OrbitingList");
 
         if (_closeButton != null)
         {
@@ -127,15 +132,25 @@ public partial class StarInfoBox : Control
             {
                 PopulateImprovements();
             }
+
+            int curOrbitingCount = CountOrbitingShips(_currentStar);
+            if (curOrbitingCount != _lastOrbitingShipsCount)
+            {
+                PopulateOrbitingShips();
+            }
         }
     }
 
     private void OnTickUpdate(int tick)
     {
+        if (!GodotObject.IsInstanceValid(this) || IsQueuedForDeletion())
+            return;
+
         if (_currentStar != null && GodotObject.IsInstanceValid(_currentStar))
         {
             UpdateRealtimeMetrics();
             PopulateImprovements();
+            PopulateOrbitingShips();
         }
     }
 
@@ -191,6 +206,7 @@ public partial class StarInfoBox : Control
         _currentStar = star;
         _lastImprovementsCount = -1;
         _lastActiveConstructionCount = -1;
+        _lastOrbitingShipsCount = -1;
         if (IsNodeReady() || _nameLabel != null)
         {
             RefreshDisplay();
@@ -228,6 +244,9 @@ public partial class StarInfoBox : Control
 
         // Facilities / Improvements
         PopulateImprovements();
+
+        // Orbiting Ships
+        PopulateOrbitingShips();
     }
 
     private void UpdateRealtimeMetrics()
@@ -373,6 +392,129 @@ public partial class StarInfoBox : Control
             emptyLabel.AddThemeFontSizeOverride("font_size", 11);
             emptyLabel.AddThemeColorOverride("font_color", new Color("556b82"));
             _improvementsList.AddChild(emptyLabel);
+        }
+    }
+
+    private System.Collections.Generic.List<Fleet> GetOrbitingFleetsForStar(Star star)
+    {
+        var result = new System.Collections.Generic.List<Fleet>();
+        if (star == null)
+            return result;
+
+        if (FleetManager.HasInstance)
+        {
+            foreach (var fleet in FleetManager.Instance.GetFleetsOrbitingStar(star))
+            {
+                if (!result.Contains(fleet))
+                {
+                    result.Add(fleet);
+                }
+            }
+        }
+
+        if (star.OwningEmpire?.OwnedFleets != null)
+        {
+            foreach (var fleet in star.OwningEmpire.OwnedFleets)
+            {
+                if (
+                    fleet != null
+                    && GodotObject.IsInstanceValid(fleet)
+                    && !fleet.IsQueuedForDeletion()
+                    && !fleet.IsEmpty
+                    && fleet.State == FleetState.InOrbit
+                    && fleet.OrbitingStar == star
+                    && !result.Contains(fleet)
+                )
+                {
+                    result.Add(fleet);
+                }
+            }
+        }
+        return result;
+    }
+
+    private int CountOrbitingShips(Star star)
+    {
+        int count = 0;
+        foreach (var fleet in GetOrbitingFleetsForStar(star))
+        {
+            count += fleet.Ships.Count;
+        }
+        return count;
+    }
+
+    private void PopulateOrbitingShips()
+    {
+        if (_orbitingList == null || _currentStar == null || !GodotObject.IsInstanceValid(_currentStar))
+            return;
+
+        var orbitingFleets = GetOrbitingFleetsForStar(_currentStar);
+        int totalShips = 0;
+        foreach (var fleet in orbitingFleets)
+        {
+            totalShips += fleet.Ships.Count;
+        }
+        _lastOrbitingShipsCount = totalShips;
+
+        if (_orbitingTitle != null)
+        {
+            _orbitingTitle.Text = $"ORBITING SHIPS ({totalShips})";
+        }
+
+        foreach (Node child in _orbitingList.GetChildren())
+        {
+            _orbitingList.RemoveChild(child);
+            child.QueueFree();
+        }
+
+        if (totalShips == 0)
+        {
+            var emptyLabel = new Label
+            {
+                Text = "• No ships in orbit",
+            };
+            emptyLabel.AddThemeFontSizeOverride("font_size", 11);
+            emptyLabel.AddThemeColorOverride("font_color", new Color("556b82"));
+            _orbitingList.AddChild(emptyLabel);
+            return;
+        }
+
+        var normalStyle = GD.Load<StyleBox>("res://UI/Styles/scifi_button_normal.tres");
+        var hoverStyle = GD.Load<StyleBox>("res://UI/Styles/scifi_button_hover.tres");
+        var pressedStyle = GD.Load<StyleBox>("res://UI/Styles/scifi_button_pressed.tres");
+
+        foreach (var fleet in orbitingFleets)
+        {
+            Color empColor = fleet.OwningEmpire?.EmpireColor ?? new Color("00e5ff");
+            foreach (var ship in fleet.Ships)
+            {
+                Ship capturedShip = ship;
+                var btn = new Button
+                {
+                    Text = $"{ship.ChronicleName} ({ship.ClassName}) — {fleet.FleetName}",
+                    Alignment = HorizontalAlignment.Left,
+                    ClipText = true,
+                    TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis,
+                    CustomMinimumSize = new Vector2(0, 22),
+                    SizeFlagsHorizontal = SizeFlags.ExpandFill,
+                };
+                btn.AddThemeFontSizeOverride("font_size", 11);
+                btn.AddThemeColorOverride("font_color", empColor);
+                btn.AddThemeColorOverride("font_hover_color", Colors.White);
+
+                if (normalStyle != null)
+                {
+                    btn.AddThemeStyleboxOverride("normal", normalStyle);
+                    btn.AddThemeStyleboxOverride("focus", normalStyle);
+                }
+                if (hoverStyle != null)
+                    btn.AddThemeStyleboxOverride("hover", hoverStyle);
+                if (pressedStyle != null)
+                    btn.AddThemeStyleboxOverride("pressed", pressedStyle);
+
+                btn.Pressed += () => ShipInfoBox.OpenForShip(capturedShip, this);
+                _orbitingList.AddChild(btn);
+            }
         }
     }
 

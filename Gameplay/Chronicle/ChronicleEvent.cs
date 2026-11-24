@@ -6,9 +6,13 @@ using Godot;
 
 public static class ChronicleEvent
 {
-    public static ChronicleEventBuilder Create(EventCategory category, string title)
+    public static ChronicleEventBuilder Create(
+        EventCategory category,
+        string title,
+        EventPriority priority = EventPriority.Normal
+    )
     {
-        return new ChronicleEventBuilder(category, title);
+        return new ChronicleEventBuilder(category, title, priority);
     }
 }
 
@@ -16,16 +20,28 @@ public class ChronicleEventBuilder
 {
     private readonly EventCategory _category;
     private readonly string _title;
+    private EventPriority _priority;
     private string _template = string.Empty;
     private IChronicleEntity _primaryEntity;
     private readonly Dictionary<string, IChronicleEntity> _involvedEntities = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _customArgs = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, object> _metadata = new(StringComparer.OrdinalIgnoreCase);
 
-    public ChronicleEventBuilder(EventCategory category, string title)
+    public ChronicleEventBuilder(
+        EventCategory category,
+        string title,
+        EventPriority priority = EventPriority.Normal
+    )
     {
         _category = category;
         _title = title;
+        _priority = priority;
+    }
+
+    public ChronicleEventBuilder WithPriority(EventPriority priority)
+    {
+        _priority = priority;
+        return this;
     }
 
     public ChronicleEventBuilder Involving(IChronicleEntity entity, bool isPrimary = false)
@@ -97,6 +113,7 @@ public class ChronicleEventBuilder
         {
             Tick = currentTick,
             Category = _category.ToString(),
+            Priority = _priority,
             Title = _title,
             RawText = rawText,
             FormattedBbcode = formattedBbcode,

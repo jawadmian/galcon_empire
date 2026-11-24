@@ -16,6 +16,8 @@ public partial class FleetInfoBox : Control
 
     private VBoxContainer _shipsList;
     private VBoxContainer _chronicleList;
+    private Button _chronicleFilterButton;
+    private ChronicleViewMode _chronicleViewMode = ChronicleViewMode.CondensedHigh;
 
     private int _lastShipsCount = -1;
     private FleetState _lastState = FleetState.InOrbit;
@@ -55,6 +57,22 @@ public partial class FleetInfoBox : Control
 
         _shipsList = GetNodeOrNull<VBoxContainer>("%ShipsList");
         _chronicleList = GetNodeOrNull<VBoxContainer>("%ChronicleList");
+        _chronicleFilterButton = GetNodeOrNull<Button>("%ChronicleFilterButton");
+
+        if (_chronicleFilterButton != null)
+        {
+            var normalStyle = GD.Load<StyleBox>("res://UI/Styles/scifi_button_normal.tres");
+            var hoverStyle = GD.Load<StyleBox>("res://UI/Styles/scifi_button_hover.tres");
+            if (normalStyle != null)
+            {
+                _chronicleFilterButton.AddThemeStyleboxOverride("normal", normalStyle);
+                _chronicleFilterButton.AddThemeStyleboxOverride("focus", normalStyle);
+            }
+            if (hoverStyle != null)
+                _chronicleFilterButton.AddThemeStyleboxOverride("hover", hoverStyle);
+            _chronicleFilterButton.Text = ChronicleFilter.GetViewModeLabel(_chronicleViewMode);
+            _chronicleFilterButton.Pressed += OnChronicleFilterPressed;
+        }
 
         if (_closeButton != null)
         {
@@ -293,15 +311,32 @@ public partial class FleetInfoBox : Control
         }
     }
 
+    private void OnChronicleFilterPressed()
+    {
+        SetChronicleViewMode(ChronicleFilter.NextViewMode(_chronicleViewMode));
+    }
+
+    public void SetChronicleViewMode(ChronicleViewMode mode)
+    {
+        _chronicleViewMode = mode;
+        _lastChronicleCount = -1;
+        if (_chronicleFilterButton != null)
+        {
+            _chronicleFilterButton.Text = ChronicleFilter.GetViewModeLabel(_chronicleViewMode);
+        }
+        PopulateChronicle();
+    }
+
     private void PopulateChronicle()
     {
         if (_chronicleList == null || _currentFleet == null)
             return;
 
+        var filter = new ChronicleFilter { EntityId = _currentFleet.ChronicleId, Limit = 25 };
+        filter.ApplyViewMode(_chronicleViewMode);
+
         List<ChronicleRecord> events = ChronicleManager.Instance != null
-            ? ChronicleManager.Instance.QueryEvents(
-                new ChronicleFilter { EntityId = _currentFleet.ChronicleId, Limit = 25 }
-            )
+            ? ChronicleManager.Instance.QueryEvents(filter)
             : new List<ChronicleRecord>();
 
         if (events.Count == _lastChronicleCount && _lastChronicleCount >= 0)

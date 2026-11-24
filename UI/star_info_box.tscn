@@ -242,7 +242,7 @@ theme_override_font_sizes/font_size = 11
 text = "FACILITIES & INFRASTRUCTURE"
 
 [node name="ImprovementsScroll" type="ScrollContainer" parent="Background/ContentMargin/MainVBox/ImprovementsVBox" unique_id=1280366264]
-custom_minimum_size = Vector2(0, 80)
+custom_minimum_size = Vector2(0, 60)
 layout_mode = 2
 size_flags_vertical = 3
 
@@ -256,6 +256,29 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.33333334, 0.41960785, 0.50980395, 1)
 theme_override_font_sizes/font_size = 11
 text = "• No facilities installed"
+
+[node name="OrbitingVBox" type="VBoxContainer" parent="Background/ContentMargin/MainVBox" unique_id=1990743613]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="OrbitingTitle" type="Label" parent="Background/ContentMargin/MainVBox/OrbitingVBox" unique_id=1961245378]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.56078434, 0.6392157, 0.7490196, 1)
+theme_override_font_sizes/font_size = 11
+text = "ORBITING SHIPS (0)"
+
+[node name="OrbitingScroll" type="ScrollContainer" parent="Background/ContentMargin/MainVBox/OrbitingVBox" unique_id=565699929]
+custom_minimum_size = Vector2(0, 55)
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="OrbitingList" type="VBoxContainer" parent="Background/ContentMargin/MainVBox/OrbitingVBox/OrbitingScroll" unique_id=1923490341]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 3
 
 [node name="CloseButton" type="Button" parent="." unique_id=270768031]
 unique_name_in_owner = true

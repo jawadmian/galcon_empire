@@ -256,6 +256,29 @@ public partial class FleetManager : Node
         }
     }
 
+    public List<Fleet> GetFleetsOrbitingStar(Star star)
+    {
+        var result = new List<Fleet>();
+        if (star == null)
+            return result;
+
+        foreach (var fleet in _fleets)
+        {
+            if (
+                fleet != null
+                && GodotObject.IsInstanceValid(fleet)
+                && !fleet.IsQueuedForDeletion()
+                && !fleet.IsEmpty
+                && fleet.State == FleetState.InOrbit
+                && fleet.OrbitingStar == star
+            )
+            {
+                result.Add(fleet);
+            }
+        }
+        return result;
+    }
+
     public List<Fleet> GetFleetsForEmpire(Empire empire)
     {
         var result = new List<Fleet>();

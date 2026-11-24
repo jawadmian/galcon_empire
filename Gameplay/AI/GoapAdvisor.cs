@@ -111,6 +111,7 @@ public class GoapAdvisor : IAdvisor
             _empire.HasFleetWithAbility(ShipAbility.Colonize)
             || _empire.HasShipPending(ShipAbility.Colonize);
         bool hasIdleColonyShip = _empire.GetIdleFleetsWithAbility(ShipAbility.Colonize).Count > 0;
+        bool hasPopForColonyShip = HasShipyardWithColonyPopulation();
         bool hasUnownedStars =
             StarManager.HasInstance
             && StarManager.Instance.GetNearestUnownedStar(
@@ -120,7 +121,28 @@ public class GoapAdvisor : IAdvisor
 
         State.SetValue("HasColonyShip", hasColonyShip);
         State.SetValue("HasIdleColonyShip", hasIdleColonyShip);
+        State.SetValue("HasPopForColonyShip", hasPopForColonyShip);
         State.SetValue("HasUnownedStars", hasUnownedStars);
+    }
+
+    private bool HasShipyardWithColonyPopulation()
+    {
+        int requiredColonists = 5000;
+        if (FleetManager.HasInstance)
+        {
+            var designs = FleetManager.Instance.GetDesignsWithAbility(ShipAbility.Colonize);
+            if (designs.Count > 0)
+            {
+                requiredColonists = Empire.GetRequiredColonists(designs[0]);
+            }
+        }
+
+        foreach (var star in _empire.OwnedStars)
+        {
+            if (star.HasShipyard && star.CanSupportColonistDeparture(requiredColonists))
+                return true;
+        }
+        return false;
     }
 
     /// <summary>

@@ -24,10 +24,28 @@ public partial class ChronicleManager : Node
     public string DatabasePath { get; set; } = "res://saves/chronicle.db";
 
     [Export]
-    public bool ResetOnStart { get; set; } = true;
+    public string TestDatabasePath { get; set; } = "res://saves/chronicle_test.db";
+
+    [Export]
+    public bool ResetOnStart { get; set; } = false;
 
     private SqliteConnection _dbConnection;
     private readonly object _dbLock = new object();
+
+    public static bool IsRunningTests()
+    {
+        foreach (string arg in OS.GetCmdlineArgs())
+        {
+            if (arg.Contains("gdUnit", StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        foreach (string arg in OS.GetCmdlineUserArgs())
+        {
+            if (arg.Contains("gdUnit", StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
+    }
 
     public override void _EnterTree()
     {
@@ -43,7 +61,15 @@ public partial class ChronicleManager : Node
 
     public override void _Ready()
     {
-        InitializeDatabase(resetDatabase: ResetOnStart);
+        if (IsRunningTests())
+        {
+            DatabasePath = TestDatabasePath;
+            InitializeDatabase(resetDatabase: true);
+        }
+        else
+        {
+            InitializeDatabase(resetDatabase: ResetOnStart);
+        }
     }
 
     public override void _ExitTree()
@@ -146,6 +172,7 @@ public partial class ChronicleManager : Node
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 tick INTEGER NOT NULL,
                 category TEXT NOT NULL,
+                priority INTEGER NOT NULL DEFAULT 1,
                 title TEXT NOT NULL,
                 raw_text TEXT NOT NULL,
                 formatted_bbcode TEXT NOT NULL,
@@ -163,6 +190,35 @@ public partial class ChronicleManager : Node
         using var cmd = _dbConnection.CreateCommand();
         cmd.CommandText = schemaSql;
         cmd.ExecuteNonQuery();
+
+        // Migrate older databases that predate the priority column
+        bool hasPriorityCol = false;
+        using (var pragmaCmd = _dbConnection.CreateCommand())
+        {
+            pragmaCmd.CommandText = "PRAGMA table_info(chronicle_events);";
+            using var reader = pragmaCmd.ExecuteReader();
+            while (reader.Read())
+            {
+                if (reader.GetString(1).Equals("priority", StringComparison.OrdinalIgnoreCase))
+                {
+                    hasPriorityCol = true;
+                    break;
+                }
+            }
+        }
+
+        if (!hasPriorityCol)
+        {
+            using var alterCmd = _dbConnection.CreateCommand();
+            alterCmd.CommandText = "ALTER TABLE chronicle_events ADD COLUMN priority INTEGER NOT NULL DEFAULT 1;";
+            alterCmd.ExecuteNonQuery();
+        }
+
+        using (var idxCmd = _dbConnection.CreateCommand())
+        {
+            idxCmd.CommandText = "CREATE INDEX IF NOT EXISTS idx_chronicle_priority ON chronicle_events(priority);";
+            idxCmd.ExecuteNonQuery();
+        }
     }
 
     /// <summary>
@@ -183,9 +239,9 @@ public partial class ChronicleManager : Node
             {
                 const string insertSql = @"
                     INSERT INTO chronicle_events (
-                        tick, category, title, raw_text, formatted_bbcode, primary_entity_id, entity_tags, metadata_json
+                        tick, category, priority, title, raw_text, formatted_bbcode, primary_entity_id, entity_tags, metadata_json
                     ) VALUES (
-                        @tick, @category, @title, @raw_text, @formatted_bbcode, @primary_entity_id, @entity_tags, @metadata_json
+                        @tick, @category, @priority, @title, @raw_text, @formatted_bbcode, @primary_entity_id, @entity_tags, @metadata_json
                     );
                     SELECT last_insert_rowid();
                 ";
@@ -194,6 +250,7 @@ public partial class ChronicleManager : Node
                 cmd.CommandText = insertSql;
                 cmd.Parameters.AddWithValue("@tick", record.Tick);
                 cmd.Parameters.AddWithValue("@category", record.Category ?? string.Empty);
+                cmd.Parameters.AddWithValue("@priority", (int)record.Priority);
                 cmd.Parameters.AddWithValue("@title", record.Title ?? string.Empty);
                 cmd.Parameters.AddWithValue("@raw_text", record.RawText ?? string.Empty);
                 cmd.Parameters.AddWithValue("@formatted_bbcode", record.FormattedBbcode ?? string.Empty);
@@ -239,42 +296,14 @@ public partial class ChronicleManager : Node
             }
 
             var queryBuilder = new System.Text.StringBuilder(@"
-                SELECT id, tick, category, title, raw_text, formatted_bbcode, primary_entity_id, entity_tags, metadata_json
+                SELECT id, tick, category, priority, title, raw_text, formatted_bbcode, primary_entity_id, entity_tags, metadata_json
                 FROM chronicle_events
                 WHERE 1=1
             ");
 
             using var cmd = _dbConnection.CreateCommand();
 
-            if (!string.IsNullOrEmpty(filter.EntityId))
-            {
-                queryBuilder.Append(" AND entity_tags LIKE @entity_tag");
-                cmd.Parameters.AddWithValue("@entity_tag", $"%,{filter.EntityId},%");
-            }
-
-            if (filter.Category.HasValue)
-            {
-                queryBuilder.Append(" AND category = @category");
-                cmd.Parameters.AddWithValue("@category", filter.Category.Value.ToString());
-            }
-
-            if (filter.MinTick.HasValue)
-            {
-                queryBuilder.Append(" AND tick >= @min_tick");
-                cmd.Parameters.AddWithValue("@min_tick", filter.MinTick.Value);
-            }
-
-            if (filter.MaxTick.HasValue)
-            {
-                queryBuilder.Append(" AND tick <= @max_tick");
-                cmd.Parameters.AddWithValue("@max_tick", filter.MaxTick.Value);
-            }
-
-            if (!string.IsNullOrEmpty(filter.SearchText))
-            {
-                queryBuilder.Append(" AND (raw_text LIKE @search OR title LIKE @search)");
-                cmd.Parameters.AddWithValue("@search", $"%{filter.SearchText}%");
-            }
+            AppendFilterConditions(queryBuilder, cmd, filter);
 
             queryBuilder.Append(" ORDER BY tick DESC, id DESC LIMIT @limit OFFSET @offset;");
             cmd.Parameters.AddWithValue("@limit", Math.Max(1, filter.Limit));
@@ -290,17 +319,67 @@ public partial class ChronicleManager : Node
                     Id = reader.GetInt64(0),
                     Tick = reader.GetInt32(1),
                     Category = reader.GetString(2),
-                    Title = reader.GetString(3),
-                    RawText = reader.GetString(4),
-                    FormattedBbcode = reader.GetString(5),
-                    PrimaryEntityId = reader.IsDBNull(6) ? string.Empty : reader.GetString(6),
-                    EntityTags = reader.GetString(7),
-                    MetadataJson = reader.IsDBNull(8) ? "{}" : reader.GetString(8)
+                    Priority = (EventPriority)reader.GetInt32(3),
+                    Title = reader.GetString(4),
+                    RawText = reader.GetString(5),
+                    FormattedBbcode = reader.GetString(6),
+                    PrimaryEntityId = reader.IsDBNull(7) ? string.Empty : reader.GetString(7),
+                    EntityTags = reader.GetString(8),
+                    MetadataJson = reader.IsDBNull(9) ? "{}" : reader.GetString(9)
                 });
             }
         }
 
         return results;
+    }
+
+    private static void AppendFilterConditions(
+        System.Text.StringBuilder queryBuilder,
+        SqliteCommand cmd,
+        ChronicleFilter filter
+    )
+    {
+        if (!string.IsNullOrEmpty(filter.EntityId))
+        {
+            queryBuilder.Append(" AND entity_tags LIKE @entity_tag");
+            cmd.Parameters.AddWithValue("@entity_tag", $"%,{filter.EntityId},%");
+        }
+
+        if (filter.Category.HasValue)
+        {
+            queryBuilder.Append(" AND category = @category");
+            cmd.Parameters.AddWithValue("@category", filter.Category.Value.ToString());
+        }
+
+        if (filter.MinPriority.HasValue)
+        {
+            queryBuilder.Append(" AND priority >= @min_priority");
+            cmd.Parameters.AddWithValue("@min_priority", (int)filter.MinPriority.Value);
+        }
+
+        if (filter.ExactPriority.HasValue)
+        {
+            queryBuilder.Append(" AND priority = @exact_priority");
+            cmd.Parameters.AddWithValue("@exact_priority", (int)filter.ExactPriority.Value);
+        }
+
+        if (filter.MinTick.HasValue)
+        {
+            queryBuilder.Append(" AND tick >= @min_tick");
+            cmd.Parameters.AddWithValue("@min_tick", filter.MinTick.Value);
+        }
+
+        if (filter.MaxTick.HasValue)
+        {
+            queryBuilder.Append(" AND tick <= @max_tick");
+            cmd.Parameters.AddWithValue("@max_tick", filter.MaxTick.Value);
+        }
+
+        if (!string.IsNullOrEmpty(filter.SearchText))
+        {
+            queryBuilder.Append(" AND (raw_text LIKE @search OR title LIKE @search)");
+            cmd.Parameters.AddWithValue("@search", $"%{filter.SearchText}%");
+        }
     }
 
     /// <summary>
@@ -322,36 +401,7 @@ public partial class ChronicleManager : Node
             ");
 
             using var cmd = _dbConnection.CreateCommand();
-
-            if (!string.IsNullOrEmpty(filter.EntityId))
-            {
-                queryBuilder.Append(" AND entity_tags LIKE @entity_tag");
-                cmd.Parameters.AddWithValue("@entity_tag", $"%,{filter.EntityId},%");
-            }
-
-            if (filter.Category.HasValue)
-            {
-                queryBuilder.Append(" AND category = @category");
-                cmd.Parameters.AddWithValue("@category", filter.Category.Value.ToString());
-            }
-
-            if (filter.MinTick.HasValue)
-            {
-                queryBuilder.Append(" AND tick >= @min_tick");
-                cmd.Parameters.AddWithValue("@min_tick", filter.MinTick.Value);
-            }
-
-            if (filter.MaxTick.HasValue)
-            {
-                queryBuilder.Append(" AND tick <= @max_tick");
-                cmd.Parameters.AddWithValue("@max_tick", filter.MaxTick.Value);
-            }
-
-            if (!string.IsNullOrEmpty(filter.SearchText))
-            {
-                queryBuilder.Append(" AND (raw_text LIKE @search OR title LIKE @search)");
-                cmd.Parameters.AddWithValue("@search", $"%{filter.SearchText}%");
-            }
+            AppendFilterConditions(queryBuilder, cmd, filter);
 
             cmd.CommandText = queryBuilder.ToString();
             var countResult = cmd.ExecuteScalar();

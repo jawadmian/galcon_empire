@@ -322,4 +322,65 @@ public partial class ChronicleManagerTest
         AssertThat(_manager.GetEventCount()).IsEqual(1);
         AssertThat(newEvent.Id).IsEqual(1L);
     }
+
+    [TestCase]
+    public void TestEventPriorityFilteringAndTestDbIsolation()
+    {
+        // Default ChronicleManager does not wipe DB on _Ready unless starting a new game,
+        // and uses a separate TestDatabasePath when running under GdUnit4.
+        var defaultManager = new ChronicleManager();
+        AssertThat(defaultManager.ResetOnStart).IsFalse();
+        AssertThat(defaultManager.TestDatabasePath).IsEqual("res://saves/chronicle_test.db");
+        AssertThat(ChronicleManager.IsRunningTests()).IsTrue();
+        defaultManager.Free();
+
+        _manager.RecordEvent(new ChronicleRecord
+        {
+            Tick = 1,
+            Category = "Economic",
+            Priority = EventPriority.Low,
+            Title = "Construction Commenced",
+            RawText = "Low priority",
+            FormattedBbcode = "Low priority",
+            EntityTags = ",empire:test,",
+        });
+        _manager.RecordEvent(new ChronicleRecord
+        {
+            Tick = 2,
+            Category = "Military",
+            Priority = EventPriority.Normal,
+            Title = "Fleet Dispatched",
+            RawText = "Normal priority",
+            FormattedBbcode = "Normal priority",
+            EntityTags = ",empire:test,",
+        });
+        _manager.RecordEvent(new ChronicleRecord
+        {
+            Tick = 3,
+            Category = "Political",
+            Priority = EventPriority.High,
+            Title = "New Colony Established",
+            RawText = "High priority",
+            FormattedBbcode = "High priority",
+            EntityTags = ",empire:test,",
+        });
+
+        // Condensed view: High priority only
+        var highOnly = _manager.QueryEvents(new ChronicleFilter { MinPriority = EventPriority.High });
+        AssertThat(highOnly.Count).IsEqual(1);
+        AssertThat(highOnly[0].Title).IsEqual("New Colony Established");
+
+        // Normal+ filter
+        var normalPlus = _manager.QueryEvents(new ChronicleFilter { MinPriority = EventPriority.Normal });
+        AssertThat(normalPlus.Count).IsEqual(2);
+
+        // Low exact filter
+        var lowOnly = _manager.QueryEvents(new ChronicleFilter { ExactPriority = EventPriority.Low });
+        AssertThat(lowOnly.Count).IsEqual(1);
+        AssertThat(lowOnly[0].Title).IsEqual("Construction Commenced");
+
+        // Detailed All: all 3 events
+        var all = _manager.QueryEvents(new ChronicleFilter());
+        AssertThat(all.Count).IsEqual(3);
+    }
 }
