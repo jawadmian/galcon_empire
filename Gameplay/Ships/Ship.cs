@@ -1,13 +1,26 @@
 using System;
+using Godot;
 
 /// <summary>
 /// Runtime instance of a ship constructed from a ShipDesignResource blueprint.
 /// </summary>
-public class Ship
+public class Ship : IChronicleEntity
 {
     public string ShipId { get; }
     public ShipDesignResource Design { get; }
     public int CurrentHitPoints { get; set; }
+    public int CommissionedTick { get; set; }
+    public string BuiltAtStarName { get; set; } = string.Empty;
+    public Fleet CurrentFleet { get; set; }
+
+    // IChronicleEntity implementation
+    public string ChronicleId => $"ship:{ShipId}";
+    public string ChronicleName => $"{Design?.DesignName ?? "Ship"} #{ShipId}";
+    public string ChronicleType => "ship";
+    public Vector2? WorldPosition =>
+        CurrentFleet != null && GodotObject.IsInstanceValid(CurrentFleet)
+            ? CurrentFleet.WorldPosition
+            : null;
 
     public int MaxHitPoints => Design?.MaxHitPoints ?? 100;
     public float Speed => Design?.Speed ?? 0f;

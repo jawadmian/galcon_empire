@@ -498,7 +498,11 @@ public partial class Empire : Node, IChronicleEntity
 
     private Fleet SpawnCompletedShip(ShipDesignResource design, Star star)
     {
-        var ship = new Ship(design);
+        var ship = new Ship(design)
+        {
+            CommissionedTick = TickManager.HasInstance ? TickManager.Instance.tickCount : 0,
+            BuiltAtStarName = star?.StarName ?? "Unknown",
+        };
         Fleet fleet;
         if (FleetManager.HasInstance)
         {
@@ -519,8 +523,11 @@ public partial class Empire : Node, IChronicleEntity
         ChronicleEvent.Create(EventCategory.Military, "Ship Commissioned")
             .Involving(this, isPrimary: true)
             .Involving(star)
-            .WithTemplate("{empire} commissioned a new [b]{ship}[/b] at {star}.")
-            .WithArg("ship", design.DesignName)
+            .Involving(fleet)
+            .Involving(ship)
+            .WithTemplate("{empire} commissioned {ship} into {fleet} at {star}.")
+            .WithMetadata("ship_id", ship.ShipId)
+            .WithMetadata("design_id", design.DesignId)
             .Record();
 
         return fleet;

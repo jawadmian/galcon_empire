@@ -14,11 +14,11 @@ The player acts as an incorporeal galactic observer and shaper, watching and inf
 | If you are working on... | Read Subsystem Doc First | Primary Code / Data Locations | Test Suites |
 | :--- | :--- | :--- | :--- |
 | **Tick loop, Galaxy gen, Stars, Empires, Resources, Food/Pop, Building caps** | [simulation_and_economy.md](.agent/subsystems/simulation_and_economy.md) | `Gameplay/Managers/{Tick,Star,Empire}Manager.cs`, `Gameplay/{Star,Empire}.cs`, `Data/ImprovementResource.cs`, `Data/Improvements/` | [EmpireTests.cs](Tests/EmpireTests.cs), [ShipSystemTests.cs](Tests/ShipSystemTests.cs) |
-| **Ships, Ship blueprints, Shipyards, Fleets, Space movement, Colonization** | [ships_and_fleets.md](.agent/subsystems/ships_and_fleets.md) *(Roadmap: [Ship_Design.md](Ship_Design.md))* | `Data/ShipDesignResource.cs`, `Data/Ships/`, `Gameplay/Ships/{Ship,Fleet}.cs`, `Gameplay/Managers/FleetManager.cs`, `Gameplay/Empire.cs` | [ShipSystemTests.cs](Tests/ShipSystemTests.cs) |
+| **Ships, Ship blueprints, Shipyards, Fleets, Space movement, Colonization** | [ships_and_fleets.md](.agent/subsystems/ships_and_fleets.md) *(Roadmap: [Ship_Design.md](Ship_Design.md))* | `Data/ShipDesignResource.cs`, `Data/Ships/`, `Gameplay/Ships/{Ship,Fleet}.cs`, `Gameplay/Managers/FleetManager.cs`, `Gameplay/Empire.cs` | [ShipSystemTests.cs](Tests/ShipSystemTests.cs), [FleetAndShipInfoBoxTest.cs](Tests/FleetAndShipInfoBoxTest.cs) |
 | **GOAP AI, Goals, Actions, Blackboard, AIManager, Pluggable Advisors** | [ai_and_goap.md](.agent/subsystems/ai_and_goap.md) *(Roadmap: [AI_Design.md](AI_Design.md))* | `Gameplay/Managers/AIManager.cs`, `Gameplay/AI/GoapAdvisor.cs`, `Gameplay/AI/{GOAP,Goals,Actions}/`, `Gameplay/IAdvisor.cs` | [BlackboardTests.cs](Tests/BlackboardTests.cs), [GoapPlannerTests.cs](Tests/GoapPlannerTests.cs), [ShipSystemTests.cs](Tests/ShipSystemTests.cs) |
 | **Chronicle history log, SQLite DB, Entity hyperlinks, Event categories** | [chronicle_and_persistence.md](.agent/subsystems/chronicle_and_persistence.md) | `Gameplay/Managers/ChronicleManager.cs`, `Gameplay/Chronicle/` | [ChronicleManagerTest.cs](Tests/ChronicleManagerTest.cs) |
-| **UI panels, HUD, NinePatchRect styling, Camera, Space background** | [ui_and_camera.md](.agent/subsystems/ui_and_camera.md) *(Style Rules: [UI/agents.md](UI/agents.md))* | `UI/`, `Gameplay/CameraController.cs`, `Gameplay/space_background.tscn`, `Images/` | [StarInfoBoxTest.cs](Tests/StarInfoBoxTest.cs), [EmpireInfoBoxTest.cs](Tests/EmpireInfoBoxTest.cs), [CameraControllerTest.cs](Tests/CameraControllerTest.cs), [SpaceBackgroundTest.cs](Tests/SpaceBackgroundTest.cs) |
-| **Writing or running tests (GdUnit4)** | [testing_guide.md](.agent/testing_guide.md) | `Tests/`, `addons/gdUnit4/` | All 9 suites under `res://Tests/` |
+| **UI panels, HUD, NinePatchRect styling, Camera, Space background** | [ui_and_camera.md](.agent/subsystems/ui_and_camera.md) *(Style Rules: [UI/agents.md](UI/agents.md))* | `UI/`, `Gameplay/CameraController.cs`, `Gameplay/space_background.tscn`, `Images/` | [StarInfoBoxTest.cs](Tests/StarInfoBoxTest.cs), [EmpireInfoBoxTest.cs](Tests/EmpireInfoBoxTest.cs), [FleetAndShipInfoBoxTest.cs](Tests/FleetAndShipInfoBoxTest.cs), [CameraControllerTest.cs](Tests/CameraControllerTest.cs), [SpaceBackgroundTest.cs](Tests/SpaceBackgroundTest.cs) |
+| **Writing or running tests (GdUnit4)** | [testing_guide.md](.agent/testing_guide.md) | `Tests/`, `addons/gdUnit4/` | All 10 suites under `res://Tests/` |
 
 ---
 
@@ -124,8 +124,10 @@ GalconEmpire/
 │   ├── EmpiresList.cs              # Empire roster & day counter
 │   ├── EmpireInfoBox.cs            # Draggable empire dossier
 │   ├── StarInfoBox.cs              # Draggable star inspector
+│   ├── FleetInfoBox.cs             # Draggable fleet dossier (ships + Chronicle)
+│   ├── ShipInfoBox.cs              # Draggable ship details (stats + Chronicle)
 │   └── DebugUi.cs                  # Tick speed slider
-├── Tests/                          # Unified GdUnit4 C# test suites (9 suites)
+├── Tests/                          # Unified GdUnit4 C# test suites (10 suites)
 └── Tracking/                       # FeaturePlan.md, ClassDiagram.mmd, DataERDiagram.mmd
 ```
 
@@ -145,7 +147,7 @@ Ensure build completes with **0 errors** and **0 warnings** in project code.
 ```powershell
 .\addons\gdUnit4\runtest.cmd --godot_binary "E:\Tools\Godot_v4.7.1-stable_mono_win64\Godot_v4.7.1-stable_mono_win64_console.exe" -a res://Tests/
 ```
-All 9 test suites (`BlackboardTests`, `CameraControllerTest`, `ChronicleManagerTest`, `EmpireInfoBoxTest`, `EmpireTests`, `GoapPlannerTests`, `ShipSystemTests`, `SpaceBackgroundTest`, `StarInfoBoxTest`) run under GdUnit4 and must pass with **0 errors, 0 failures, and 0 orphans**.
+All 10 test suites (`BlackboardTests`, `CameraControllerTest`, `ChronicleManagerTest`, `EmpireInfoBoxTest`, `EmpireTests`, `FleetAndShipInfoBoxTest`, `GoapPlannerTests`, `ShipSystemTests`, `SpaceBackgroundTest`, `StarInfoBoxTest`) run under GdUnit4 and must pass with **0 errors, 0 failures, and 0 orphans**.
 
 ---
 

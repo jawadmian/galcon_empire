@@ -12,7 +12,7 @@ This document maps the historical event logging system that captures emergent ga
 | [ChronicleEvent.cs](../../Gameplay/Chronicle/ChronicleEvent.cs) | `ChronicleEvent`, `ChronicleEventBuilder` | Fluent builder API (`ChronicleEvent.Create(...).Involving(...).WithTemplate(...).Record()`) that resolves `{entity}` tokens into both plain `RawText` and BBCode `[url=entity:...]Name[/url]` hyperlinks. |
 | [ChronicleRecord.cs](../../Gameplay/Chronicle/ChronicleRecord.cs) | `ChronicleRecord`, `ChronicleFilter` | Data transfer object for stored events and query filter parameters (`EntityId`, `Category`, `MinTick`, `MaxTick`, `SearchText`, `Limit`, `Offset`). |
 | [EventCategory.cs](../../Gameplay/Chronicle/EventCategory.cs) | `EventCategory` | Enum: `General`, `Political`, `Economic`, `Military`, `Demographic`, `Scientific`, `Diplomatic`. |
-| [IChronicleEntity.cs](../../Gameplay/Chronicle/IChronicleEntity.cs) | `IChronicleEntity`, `ChronicleEntityExtensions` | Contract for linkable game entities (`ChronicleId`, `ChronicleName`, `ChronicleType`, `WorldPosition`) and `ToChronicleLink()`. Implemented by `Empire`, `Star`, and `Fleet`. |
+| [IChronicleEntity.cs](../../Gameplay/Chronicle/IChronicleEntity.cs) | `IChronicleEntity`, `ChronicleEntityExtensions` | Contract for linkable game entities (`ChronicleId`, `ChronicleName`, `ChronicleType`, `WorldPosition`) and `ToChronicleLink()`. Implemented by `Empire`, `Star`, `Fleet`, and `Ship`. |
 
 ---
 
@@ -35,10 +35,13 @@ This document maps the historical event logging system that captures emergent ga
 | Category | Title | Emitted From |
 | :--- | :--- | :--- |
 | `Political` | `"Empire Founded"` | `EmpireManager.SpawnEmpiresInternal()` |
-| `Political` | `"New Colony Established"` | `Fleet.ColonizeCurrentStar()` |
+| `Political` | `"New Colony Established"` | `Fleet.ColonizeCurrentStar()` *(involves empire, star, fleet, ship)* |
+| `Political` | `"Colonization Aborted"` | `Fleet.ColonizeCurrentStar()` *(involves fleet, empire, star, ships)* |
 | `Economic` | `"Construction Commenced"` | `Empire.StartConstruction()` |
 | `Economic` | `"Facility Completed"` | `Empire.UpdateTick()` |
-| `Military` | `"Ship Commissioned"` | `Empire.SpawnCompletedShip()` |
+| `Military` | `"Ship Commissioned"` | `Empire.SpawnCompletedShip()` *(involves empire, star, fleet, ship)* |
+| `Military` | `"Fleet Dispatched"` | `Fleet.IssueOrder()` *(involves fleet, empire, target star, ships)* |
+| `Military` | `"Fleet Arrived"` | `Fleet.ArriveAtDestination()` *(involves fleet, empire, arrived star, ships)* |
 
 ---
 

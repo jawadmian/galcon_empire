@@ -1,0 +1,139 @@
+[gd_scene format=3 uid="uid://cniwagit7e1u8"]
+
+[ext_resource type="Script" uid="uid://4sistcq4qksn" path="res://UI/FleetInfoBox.cs" id="1_m5s01"]
+[ext_resource type="Texture2D" uid="uid://c8a5jdadnoh02" path="res://Images/UI/scifi_panel_bg.png" id="2_5stfd"]
+[ext_resource type="StyleBox" uid="uid://dy4l4uu600d6a" path="res://UI/Styles/scifi_button_normal.tres" id="3_5j4qh"]
+[ext_resource type="StyleBox" uid="uid://624rl2q7teiu" path="res://UI/Styles/scifi_button_pressed.tres" id="4_1wi43"]
+[ext_resource type="StyleBox" uid="uid://wrh7e3sl5w1p" path="res://UI/Styles/scifi_button_hover.tres" id="5_af25i"]
+[ext_resource type="StyleBox" uid="uid://dc8v5lw3tdvl8" path="res://UI/Styles/scifi_close_normal.tres" id="6_momar"]
+[ext_resource type="StyleBox" uid="uid://d01jxn6obyo13" path="res://UI/Styles/scifi_close_hover.tres" id="7_8b4x5"]
+
+[node name="FleetInfoBox" type="Control" unique_id=1049880742]
+custom_minimum_size = Vector2(380, 500)
+layout_mode = 3
+anchors_preset = 0
+offset_right = 380.0
+offset_bottom = 500.0
+script = ExtResource("1_m5s01")
+
+[node name="Background" type="NinePatchRect" parent="." unique_id=180363884]
+layout_mode = 0
+offset_right = 380.0
+offset_bottom = 500.0
+mouse_filter = 1
+texture = ExtResource("2_5stfd")
+patch_margin_left = 24
+patch_margin_top = 24
+patch_margin_right = 24
+patch_margin_bottom = 24
+axis_stretch_horizontal = 2
+axis_stretch_vertical = 2
+
+[node name="ContentMargin" type="MarginContainer" parent="Background" unique_id=968903258]
+layout_mode = 0
+offset_right = 380.0
+offset_bottom = 500.0
+theme_override_constants/margin_left = 28
+theme_override_constants/margin_top = 44
+theme_override_constants/margin_right = 28
+theme_override_constants/margin_bottom = 28
+
+[node name="MainVBox" type="VBoxContainer" parent="Background/ContentMargin" unique_id=2057108263]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="HeaderHBox" type="HBoxContainer" parent="Background/ContentMargin/MainVBox" unique_id=39831849]
+layout_mode = 2
+
+[node name="NameLabel" type="Label" parent="Background/ContentMargin/MainVBox/HeaderHBox" unique_id=1952455621]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 15
+text = "FLEET DOSSIER"
+
+[node name="FocusButton" type="Button" parent="Background/ContentMargin/MainVBox/HeaderHBox" unique_id=830501540]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(68, 24)
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0.8980392, 1, 1)
+theme_override_font_sizes/font_size = 11
+theme_override_styles/normal = ExtResource("3_5j4qh")
+theme_override_styles/pressed = ExtResource("4_1wi43")
+theme_override_styles/hover = ExtResource("5_af25i")
+text = "FOCUS"
+
+[node name="EmpireLabel" type="Label" parent="Background/ContentMargin/MainVBox" unique_id=369552398]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0.8980392, 1, 1)
+theme_override_font_sizes/font_size = 11
+text = "EMPIRE: NONE"
+
+[node name="StatusLabel" type="Label" parent="Background/ContentMargin/MainVBox" unique_id=1295574155]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.56078434, 0.6392157, 0.7490196, 1)
+theme_override_font_sizes/font_size = 11
+text = "STATUS: IN ORBIT"
+
+[node name="SpeedLabel" type="Label" parent="Background/ContentMargin/MainVBox" unique_id=913170780]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.56078434, 0.6392157, 0.7490196, 1)
+theme_override_font_sizes/font_size = 11
+text = "SPEED: 0 u/tick | SHIPS: 0"
+
+[node name="HSeparator1" type="HSeparator" parent="Background/ContentMargin/MainVBox" unique_id=369434294]
+layout_mode = 2
+
+[node name="ShipsHeader" type="Label" parent="Background/ContentMargin/MainVBox" unique_id=1529615484]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.56078434, 0.6392157, 0.7490196, 1)
+theme_override_font_sizes/font_size = 11
+text = "ASSIGNED SHIPS (CLICK TO INSPECT)"
+
+[node name="ShipsScroll" type="ScrollContainer" parent="Background/ContentMargin/MainVBox" unique_id=1325047185]
+custom_minimum_size = Vector2(0, 120)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ShipsList" type="VBoxContainer" parent="Background/ContentMargin/MainVBox/ShipsScroll" unique_id=455320033]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="HSeparator2" type="HSeparator" parent="Background/ContentMargin/MainVBox" unique_id=1500151398]
+layout_mode = 2
+
+[node name="ChronicleHeader" type="Label" parent="Background/ContentMargin/MainVBox" unique_id=380154941]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.56078434, 0.6392157, 0.7490196, 1)
+theme_override_font_sizes/font_size = 11
+text = "FLEET CHRONICLE"
+
+[node name="ChronicleScroll" type="ScrollContainer" parent="Background/ContentMargin/MainVBox" unique_id=2074975506]
+custom_minimum_size = Vector2(0, 140)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ChronicleList" type="VBoxContainer" parent="Background/ContentMargin/MainVBox/ChronicleScroll" unique_id=1643346107]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="CloseButton" type="Button" parent="." unique_id=409198032]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(24, 24)
+layout_mode = 0
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -22.0
+offset_bottom = 31.0
+tooltip_text = "Close Fleet Dossier"
+theme_override_styles/normal = ExtResource("6_momar")
+theme_override_styles/pressed = ExtResource("7_8b4x5")
+theme_override_styles/hover = ExtResource("7_8b4x5")
+text = "✕"

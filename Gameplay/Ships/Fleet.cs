@@ -40,6 +40,8 @@ public partial class Fleet : Node2D, IChronicleEntity
     public Star OrbitingStar { get; private set; }
     public Star DestinationStar { get; private set; }
 
+    private Area2D _clickArea;
+
     [Export]
     public float ArrivalThreshold { get; set; } = 5.0f;
 
@@ -74,6 +76,45 @@ public partial class Fleet : Node2D, IChronicleEntity
         }
     }
 
+    public override void _Ready()
+    {
+        base._Ready();
+        ZIndex = 10;
+        EnsureClickArea();
+    }
+
+    private void EnsureClickArea()
+    {
+        if (_clickArea != null && GodotObject.IsInstanceValid(_clickArea))
+            return;
+
+        _clickArea = new Area2D
+        {
+            Name = "ClickArea",
+            InputPickable = true,
+        };
+        var shape = new CollisionShape2D
+        {
+            Name = "CollisionShape2D",
+            Shape = new CircleShape2D { Radius = 16.0f },
+        };
+        _clickArea.AddChild(shape);
+        _clickArea.InputEvent += OnArea2DInputEvent;
+        AddChild(_clickArea);
+    }
+
+    private void OnArea2DInputEvent(Node viewport, InputEvent @event, long shapeIdx)
+    {
+        if (
+            @event is InputEventMouseButton mouseButtonEvent
+            && mouseButtonEvent.Pressed
+            && mouseButtonEvent.ButtonIndex == MouseButton.Left
+        )
+        {
+            FleetInfoBox.OpenForFleet(this, this);
+        }
+    }
+
     public void Initialize(Empire owner, Star startingStar, Ship initialShip = null)
     {
         OwningEmpire = owner;
@@ -105,12 +146,19 @@ public partial class Fleet : Node2D, IChronicleEntity
         if (ship != null && !_ships.Contains(ship))
         {
             _ships.Add(ship);
+            ship.CurrentFleet = this;
         }
     }
 
     public bool RemoveShip(Ship ship)
     {
-        return ship != null && _ships.Remove(ship);
+        if (ship != null && _ships.Remove(ship))
+        {
+            if (ship.CurrentFleet == this)
+                ship.CurrentFleet = null;
+            return true;
+        }
+        return false;
     }
 
     public bool HasAbility(ShipAbility ability)
@@ -172,6 +220,15 @@ public partial class Fleet : Node2D, IChronicleEntity
         {
             Rotation = toTarget.Angle();
         }
+
+        RecordFleetAndShipsEvent(
+            EventCategory.Military,
+            "Fleet Dispatched",
+            "{fleet} departed for {star} (Order: {order}).",
+            targetStar,
+            ("order", orderType.ToString())
+        );
+
         QueueRedraw();
     }
 
@@ -239,6 +296,13 @@ public partial class Fleet : Node2D, IChronicleEntity
 
         EmitSignal(SignalName.FleetArrivedSignal, this, arrivedStar);
 
+        RecordFleetAndShipsEvent(
+            EventCategory.Military,
+            "Fleet Arrived",
+            "{fleet} arrived in orbit at {star}.",
+            arrivedStar
+        );
+
         if (pendingOrder == FleetOrderType.Colonize)
         {
             ColonizeCurrentStar();
@@ -267,6 +331,12 @@ public partial class Fleet : Node2D, IChronicleEntity
             GD.Print(
                 $"Fleet '{FleetName}' aborted colonization of {OrbitingStar.StarName}: already owned by {OrbitingStar.OwningEmpire.EmpireName}."
             );
+            RecordFleetAndShipsEvent(
+                EventCategory.Political,
+                "Colonization Aborted",
+                "{fleet} aborted colonization of {star} (already claimed).",
+                OrbitingStar
+            );
             TryRedirectColonization();
             return false;
         }
@@ -279,6 +349,7 @@ public partial class Fleet : Node2D, IChronicleEntity
 
         Star targetStar = OrbitingStar;
         _ships.Remove(colonyShip);
+        colonyShip.CurrentFleet = null;
 
         OwningEmpire.AddStar(targetStar);
         targetStar.StarNameColor = OwningEmpire.EmpireColor;
@@ -296,7 +367,9 @@ public partial class Fleet : Node2D, IChronicleEntity
         ChronicleEvent.Create(EventCategory.Political, "New Colony Established")
             .Involving(OwningEmpire, isPrimary: true)
             .Involving(targetStar)
-            .WithTemplate("{empire} has established a new colony on {star}.")
+            .Involving(this)
+            .Involving(colonyShip)
+            .WithTemplate("{empire} established a new colony on {star} via {ship} ({fleet}).")
             .WithMetadata("initial_population", targetStar.StarPopulation)
             .Record();
 
@@ -327,6 +400,39 @@ public partial class Fleet : Node2D, IChronicleEntity
         GD.Print($"Fleet '{FleetName}' redirecting colonization order to {nextTarget.StarName}.");
         OrderColonize(nextTarget);
         return true;
+    }
+
+    private void RecordFleetAndShipsEvent(
+        EventCategory category,
+        string title,
+        string template,
+        Star relatedStar,
+        params (string key, string value)[] args
+    )
+    {
+        var builder = ChronicleEvent.Create(category, title)
+            .Involving(this, isPrimary: true);
+
+        if (OwningEmpire != null)
+            builder.Involving(OwningEmpire);
+
+        if (relatedStar != null)
+            builder.Involving(relatedStar);
+
+        foreach (var ship in _ships)
+        {
+            builder.Involving(ship);
+        }
+
+        builder.WithTemplate(template);
+        if (args != null)
+        {
+            foreach (var (key, value) in args)
+            {
+                builder.WithArg(key, value);
+            }
+        }
+        builder.Record();
     }
 
     public void Disband()
