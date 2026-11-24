@@ -41,6 +41,11 @@ public partial class Fleet : Node2D, IChronicleEntity
     public Star DestinationStar { get; private set; }
 
     private Area2D _clickArea;
+    private Label _shipCountLabel;
+    private Sprite2D _shipSprite;
+
+    private const string FleetShipIconPath = "res://Images/Ships/fleet_ship_icon.png";
+    private const float FleetIconScale = 0.32f;
 
     [Export]
     public float ArrivalThreshold { get; set; } = 5.0f;
@@ -82,7 +87,32 @@ public partial class Fleet : Node2D, IChronicleEntity
     {
         base._Ready();
         ZIndex = 10;
+        EnsureShipSprite();
         EnsureClickArea();
+        EnsureShipCountLabel();
+        UpdateShipCountDisplay();
+    }
+
+    private void EnsureShipSprite()
+    {
+        if (_shipSprite != null && GodotObject.IsInstanceValid(_shipSprite))
+        {
+            _shipSprite.Modulate = OwningEmpire?.EmpireColor ?? Colors.White;
+            return;
+        }
+
+        Texture2D tex = ResourceLoader.Exists(FleetShipIconPath)
+            ? GD.Load<Texture2D>(FleetShipIconPath)
+            : null;
+
+        _shipSprite = new Sprite2D
+        {
+            Name = "ShipSprite",
+            Texture = tex,
+            Scale = new Vector2(FleetIconScale, FleetIconScale),
+            Modulate = OwningEmpire?.EmpireColor ?? Colors.White,
+        };
+        AddChild(_shipSprite);
     }
 
     private void EnsureClickArea()
@@ -98,11 +128,40 @@ public partial class Fleet : Node2D, IChronicleEntity
         var shape = new CollisionShape2D
         {
             Name = "CollisionShape2D",
-            Shape = new CircleShape2D { Radius = 16.0f },
+            Shape = new CircleShape2D { Radius = 24.0f },
         };
         _clickArea.AddChild(shape);
         _clickArea.InputEvent += OnArea2DInputEvent;
         AddChild(_clickArea);
+    }
+
+    private void EnsureShipCountLabel()
+    {
+        if (_shipCountLabel != null && GodotObject.IsInstanceValid(_shipCountLabel))
+            return;
+
+        _shipCountLabel = new Label
+        {
+            Name = "ShipCountLabel",
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+            Text = _ships.Count.ToString(),
+        };
+        _shipCountLabel.AddThemeFontSizeOverride("font_size", 26);
+        _shipCountLabel.AddThemeColorOverride("font_color", Colors.White);
+        _shipCountLabel.AddThemeColorOverride("font_outline_color", Colors.Black);
+        _shipCountLabel.AddThemeConstantOverride("outline_size", 5);
+        AddChild(_shipCountLabel);
+    }
+
+    private void UpdateShipCountDisplay()
+    {
+        if (_shipCountLabel == null || !GodotObject.IsInstanceValid(_shipCountLabel))
+            return;
+
+        _shipCountLabel.Text = _ships.Count.ToString();
+        _shipCountLabel.Visible = _ships.Count > 0;
+        _shipCountLabel.Rotation = -Rotation;
+        _shipCountLabel.Position = new Vector2(24, -18).Rotated(-Rotation);
     }
 
     private void OnArea2DInputEvent(Node viewport, InputEvent @event, long shapeIdx)
@@ -148,6 +207,10 @@ public partial class Fleet : Node2D, IChronicleEntity
             Position = GetOrbitPosition(startingStar);
         }
 
+        if (_shipSprite != null && GodotObject.IsInstanceValid(_shipSprite))
+        {
+            _shipSprite.Modulate = OwningEmpire?.EmpireColor ?? Colors.White;
+        }
         Name = $"Fleet_{FleetId}";
         QueueRedraw();
     }
@@ -186,6 +249,7 @@ public partial class Fleet : Node2D, IChronicleEntity
         {
             _ships.Add(ship);
             ship.CurrentFleet = this;
+            UpdateShipCountDisplay();
         }
     }
 
@@ -195,6 +259,7 @@ public partial class Fleet : Node2D, IChronicleEntity
         {
             if (ship.CurrentFleet == this)
                 ship.CurrentFleet = null;
+            UpdateShipCountDisplay();
             return true;
         }
         return false;
@@ -270,6 +335,7 @@ public partial class Fleet : Node2D, IChronicleEntity
         if (toTarget.LengthSquared() > 0.0001f)
         {
             Rotation = toTarget.Angle();
+            UpdateShipCountDisplay();
         }
 
         RecordFleetAndShipsEvent(
@@ -335,6 +401,7 @@ public partial class Fleet : Node2D, IChronicleEntity
         {
             Position += toTarget.Normalized() * speed;
             Rotation = toTarget.Angle();
+            UpdateShipCountDisplay();
             QueueRedraw();
         }
     }
@@ -560,21 +627,6 @@ public partial class Fleet : Node2D, IChronicleEntity
 
     public override void _Draw()
     {
-        Color color = OwningEmpire?.EmpireColor ?? Colors.White;
-        // Draw a small directional chevron/triangle representing the fleet
-        Vector2[] points =
-        {
-            new Vector2(10, 0),
-            new Vector2(-7, -6),
-            new Vector2(-4, 0),
-            new Vector2(-7, 6),
-        };
-        DrawColoredPolygon(points, color);
-        DrawPolyline(
-            new[] { points[0], points[1], points[2], points[3], points[0] },
-            Colors.White,
-            1.2f,
-            true
-        );
+        // Rendered via _shipSprite (fleet_ship_icon.png)
     }
 }

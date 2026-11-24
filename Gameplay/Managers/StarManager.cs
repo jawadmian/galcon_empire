@@ -213,7 +213,7 @@ public partial class StarManager : Node
         if (star == null)
             return float.MinValue;
 
-        return star.MaxImprovements / (1.0f + distance / 1000.0f);
+        return star.MaxImprovements / (1.0f + distance / 350.0f);
     }
 
     public void UpdateTick()

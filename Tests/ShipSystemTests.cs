@@ -418,6 +418,14 @@ public partial class ShipSystemTests
         float giantScore = StarManager.ScoreStarForColonization(giantStar, 500f);
         AssertThat(giantScore).IsGreater(smallScore);
 
+        // Proximity still outweighs distant large systems across the galaxy
+        var nearbyMedium = new Star { StarName = "Nearby", Position = new Vector2(350, 0) };
+        nearbyMedium.SetSystemSize(6);
+        float nearbyScore = StarManager.ScoreStarForColonization(nearbyMedium, 350f);
+        float farGiantScore = StarManager.ScoreStarForColonization(giantStar, 2000f);
+        AssertThat(nearbyScore).IsGreater(farGiantScore);
+        nearbyMedium.Free();
+
         // StarManager default spacing is spread out (>= 300u apart)
         var manager = new StarManager();
         AssertThat(manager.MinStarDistanceSquared).IsGreaterEqual(90000.0f);
@@ -744,5 +752,39 @@ public partial class ShipSystemTests
         empire.Free();
         shipyardStar.Free();
         frontier.Free();
+    }
+
+    [TestCase]
+    public void TestFleetShipCountLabelUpdatesWithShips()
+    {
+        var empire = new Empire { EmpireName = "Armada", EmpireColor = Colors.Cyan };
+        var home = new Star { StarName = "Dock", Position = new Vector2(0, 0) };
+        var design = CreateColonyShipDesign();
+        var ship1 = new Ship(design);
+        var ship2 = new Ship(design);
+
+        var fleet = new Fleet();
+        fleet.Initialize(empire, home, ship1);
+        fleet._Ready();
+
+        var shipSprite = fleet.GetNodeOrNull<Sprite2D>("ShipSprite");
+        AssertThat(shipSprite).IsNotNull();
+        AssertThat(shipSprite.Texture).IsNotNull();
+        AssertThat(shipSprite.Texture.ResourcePath).IsEqual("res://Images/Ships/fleet_ship_icon.png");
+
+        var countLabel = fleet.GetNodeOrNull<Label>("ShipCountLabel");
+        AssertThat(countLabel).IsNotNull();
+        AssertThat(countLabel.GetThemeFontSize("font_size")).IsEqual(26);
+        AssertThat(countLabel.Text).IsEqual("1");
+
+        fleet.AddShip(ship2);
+        AssertThat(countLabel.Text).IsEqual("2");
+
+        fleet.RemoveShip(ship1);
+        AssertThat(countLabel.Text).IsEqual("1");
+
+        fleet.Free();
+        empire.Free();
+        home.Free();
     }
 }
