@@ -24,6 +24,7 @@ Whenever a task modifies gameplay systems, architecture, or assets, update the d
 | Added new `.tres` blueprints (improvements, ships) or `ResourceType`/`ShipAbility` values | Update the owning subsystem doc's asset/enum table. |
 | Added, renamed, or deleted scripts, managers, autoloads, or test suites | Update the owning subsystem doc **and** the **Codebase Anatomy** / **Subsystem Routing Index** in [gemini.md](../../gemini.md). |
 | Introduced a brand-new subsystem (e.g., Technology Tree, Diplomacy, Combat Resolver) | Create `.agent/subsystems/<new_subsystem>.md` using the standard template below and add it to [gemini.md](../../gemini.md). |
+| Modified the portable Chronicle component (`Modules/Chronicle/`) | Follow [chronicle_component.md](chronicle_component.md): sync `Modules/Chronicle/README.md`, `Modules/Chronicle/AGENT_INTEGRATION.md`, and [.agent/subsystems/chronicle_and_persistence.md](../subsystems/chronicle_and_persistence.md). |
 
 *Skip documentation edits only for purely internal refactors or bug fixes that do not alter file layout, data contracts, Blackboard keys, rules, or documented behavior.*
 

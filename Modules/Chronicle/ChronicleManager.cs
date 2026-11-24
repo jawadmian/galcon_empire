@@ -17,6 +17,15 @@ public partial class ChronicleManager : Node
         _instance = manager;
     }
 
+    /// <summary>
+    /// Optional delegate supplying the current simulation tick/turn/timestamp when recording events.
+    /// Wire this in your game's clock or bootstrap (e.g. <c>ChronicleManager.TickProvider = () => Clock.Tick;</c>).
+    /// Defaults to returning 0 when unset.
+    /// </summary>
+    public static Func<int> TickProvider { get; set; }
+
+    public static int GetCurrentTick() => TickProvider?.Invoke() ?? 0;
+
     [Signal]
     public delegate void EventRecordedEventHandler(long eventId, string title, string category, int tick);
 
@@ -345,7 +354,12 @@ public partial class ChronicleManager : Node
             cmd.Parameters.AddWithValue("@entity_tag", $"%,{filter.EntityId},%");
         }
 
-        if (filter.Category.HasValue)
+        if (!string.IsNullOrEmpty(filter.CategoryName))
+        {
+            queryBuilder.Append(" AND category = @category");
+            cmd.Parameters.AddWithValue("@category", filter.CategoryName);
+        }
+        else if (filter.Category.HasValue)
         {
             queryBuilder.Append(" AND category = @category");
             cmd.Parameters.AddWithValue("@category", filter.Category.Value.ToString());

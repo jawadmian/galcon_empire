@@ -122,6 +122,7 @@ public partial class TickManager : Node
         {
             Instance = this;
         }
+        ChronicleManager.TickProvider = () => HasInstance ? _instance.tickCount : 0;
     }
 
     public override void _Process(double delta)

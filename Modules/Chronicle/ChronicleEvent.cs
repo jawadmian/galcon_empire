@@ -12,15 +12,25 @@ public static class ChronicleEvent
         EventPriority priority = EventPriority.Normal
     )
     {
+        return new ChronicleEventBuilder(category.ToString(), title, priority);
+    }
+
+    public static ChronicleEventBuilder Create(
+        string category,
+        string title,
+        EventPriority priority = EventPriority.Normal
+    )
+    {
         return new ChronicleEventBuilder(category, title, priority);
     }
 }
 
 public class ChronicleEventBuilder
 {
-    private readonly EventCategory _category;
+    private readonly string _category;
     private readonly string _title;
     private EventPriority _priority;
+    private int? _tickOverride;
     private string _template = string.Empty;
     private IChronicleEntity _primaryEntity;
     private readonly Dictionary<string, IChronicleEntity> _involvedEntities = new(StringComparer.OrdinalIgnoreCase);
@@ -31,9 +41,17 @@ public class ChronicleEventBuilder
         EventCategory category,
         string title,
         EventPriority priority = EventPriority.Normal
+    ) : this(category.ToString(), title, priority)
+    {
+    }
+
+    public ChronicleEventBuilder(
+        string category,
+        string title,
+        EventPriority priority = EventPriority.Normal
     )
     {
-        _category = category;
+        _category = string.IsNullOrEmpty(category) ? EventCategory.General.ToString() : category;
         _title = title;
         _priority = priority;
     }
@@ -41,6 +59,12 @@ public class ChronicleEventBuilder
     public ChronicleEventBuilder WithPriority(EventPriority priority)
     {
         _priority = priority;
+        return this;
+    }
+
+    public ChronicleEventBuilder AtTick(int tick)
+    {
+        _tickOverride = tick;
         return this;
     }
 
@@ -90,11 +114,7 @@ public class ChronicleEventBuilder
 
     public ChronicleRecord Record()
     {
-        int currentTick = 0;
-        if (TickManager.Instance != null)
-        {
-            currentTick = TickManager.Instance.tickCount;
-        }
+        int currentTick = _tickOverride ?? ChronicleManager.GetCurrentTick();
 
         // Parse template for both BBCode (hyperlinked) and raw text
         string formattedBbcode = FormatTokens(_template, useHyperlinks: true);
@@ -112,7 +132,7 @@ public class ChronicleEventBuilder
         var record = new ChronicleRecord
         {
             Tick = currentTick,
-            Category = _category.ToString(),
+            Category = _category,
             Priority = _priority,
             Title = _title,
             RawText = rawText,

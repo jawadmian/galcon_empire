@@ -18,6 +18,11 @@ public class ChronicleFilter
 {
     public string EntityId { get; set; }
     public EventCategory? Category { get; set; }
+    /// <summary>
+    /// Optional raw category string filter (takes precedence over <see cref="Category"/> when set).
+    /// Useful when integrating custom string-based categories in other games.
+    /// </summary>
+    public string CategoryName { get; set; }
     public EventPriority? MinPriority { get; set; }
     public EventPriority? ExactPriority { get; set; }
     public int? MinTick { get; set; }

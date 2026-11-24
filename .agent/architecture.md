@@ -36,7 +36,7 @@ The simulation is **strictly tick-driven**, decoupled from real-time rendering `
 | :--- | :--- | :--- | :--- |
 | `TickManager` | Autoload | `res://Gameplay/Managers/tick_manager.tscn` | Simulation clock and `TickUpdateSignal` publisher. |
 | `AIManager` | Autoload | `res://Gameplay/Managers/AIManager.cs` | Spreads `GoapAdvisor.UpdateAI()` calls across frames to prevent CPU spikes. |
-| `ChronicleManager` | Autoload | `res://Gameplay/Managers/ChronicleManager.cs` | Thread-safe SQLite historical event store (`res://saves/chronicle.db`). |
+| `ChronicleManager` | Autoload | `res://Modules/Chronicle/ChronicleManager.cs` | Thread-safe SQLite historical event store (`res://saves/chronicle.db`). |
 | `FleetManager` | Autoload | `res://Gameplay/Managers/FleetManager.cs` | Loads `ShipDesignResource` blueprints from `res://Data/Ships` and drives tick-based fleet movement. |
 | `StarManager` | Scene (`galaxy_spawner.tscn`) | `res://Gameplay/Managers/star_manager.tscn` | Procedural star placement, spatial/unowned star queries, star tick propagation. |
 | `EmpireManager` | Scene (`galaxy_spawner.tscn`) | `res://Gameplay/Managers/empire_manager.tscn` | Loads `ImprovementResource` blueprints from `res://Data/Improvements`, spawns empires, and forwards ticks. |

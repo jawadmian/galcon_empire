@@ -16,7 +16,7 @@ The player acts as an incorporeal galactic observer and shaper, watching and inf
 | **Tick loop, Galaxy gen, Stars, Empires, Resources, Food/Pop, Building caps** | [simulation_and_economy.md](.agent/subsystems/simulation_and_economy.md) | `Gameplay/Managers/{Tick,Star,Empire}Manager.cs`, `Gameplay/{Star,Empire}.cs`, `Data/ImprovementResource.cs`, `Data/Improvements/` | [EmpireTests.cs](Tests/EmpireTests.cs), [ShipSystemTests.cs](Tests/ShipSystemTests.cs) |
 | **Ships, Ship blueprints, Shipyards, Fleets, Space movement, Colonization** | [ships_and_fleets.md](.agent/subsystems/ships_and_fleets.md) *(Roadmap: [Ship_Design.md](Ship_Design.md))* | `Data/ShipDesignResource.cs`, `Data/Ships/`, `Gameplay/Ships/{Ship,Fleet}.cs`, `Gameplay/Managers/FleetManager.cs`, `Gameplay/Empire.cs` | [ShipSystemTests.cs](Tests/ShipSystemTests.cs), [FleetAndShipInfoBoxTest.cs](Tests/FleetAndShipInfoBoxTest.cs) |
 | **GOAP AI, Goals, Actions, Blackboard, AIManager, Pluggable Advisors** | [ai_and_goap.md](.agent/subsystems/ai_and_goap.md) *(Roadmap: [AI_Design.md](AI_Design.md))* | `Gameplay/Managers/AIManager.cs`, `Gameplay/AI/GoapAdvisor.cs`, `Gameplay/AI/{GOAP,Goals,Actions}/`, `Gameplay/IAdvisor.cs` | [BlackboardTests.cs](Tests/BlackboardTests.cs), [GoapPlannerTests.cs](Tests/GoapPlannerTests.cs), [ShipSystemTests.cs](Tests/ShipSystemTests.cs) |
-| **Chronicle history log, SQLite DB, Entity hyperlinks, Event categories** | [chronicle_and_persistence.md](.agent/subsystems/chronicle_and_persistence.md) | `Gameplay/Managers/ChronicleManager.cs`, `Gameplay/Chronicle/` | [ChronicleManagerTest.cs](Tests/ChronicleManagerTest.cs) |
+| **Chronicle history log, SQLite DB, Entity hyperlinks, Event categories** | [chronicle_and_persistence.md](.agent/subsystems/chronicle_and_persistence.md) | `Modules/Chronicle/` (`ChronicleManager.cs`, `ChronicleEvent.cs`, `ChronicleRecord.cs`, `EventCategory.cs`, `IChronicleEntity.cs`) | [ChronicleManagerTest.cs](Tests/ChronicleManagerTest.cs) |
 | **UI panels, HUD, NinePatchRect styling, Camera, Space background** | [ui_and_camera.md](.agent/subsystems/ui_and_camera.md) *(Style Rules: [UI/agents.md](UI/agents.md))* | `UI/`, `Gameplay/CameraController.cs`, `Gameplay/space_background.tscn`, `Images/` | [StarInfoBoxTest.cs](Tests/StarInfoBoxTest.cs), [EmpireInfoBoxTest.cs](Tests/EmpireInfoBoxTest.cs), [FleetAndShipInfoBoxTest.cs](Tests/FleetAndShipInfoBoxTest.cs), [CameraControllerTest.cs](Tests/CameraControllerTest.cs), [SpaceBackgroundTest.cs](Tests/SpaceBackgroundTest.cs) |
 | **Writing or running tests (GdUnit4)** | [testing_guide.md](.agent/testing_guide.md) | `Tests/`, `addons/gdUnit4/` | All 10 suites under `res://Tests/` |
 
@@ -87,7 +87,8 @@ GalconEmpire/
 ├── Ship_Design.md                  # High-level ship, fleet & colonization design doc
 ├── .agent/                         # Agent technical reference & custom rules
 │   ├── rules/
-│   │   └── documentation_sync.md   # Formal rule for doc-first navigation & subsystem sync
+│   │   ├── documentation_sync.md   # Formal rule for doc-first navigation & subsystem sync
+│   │   └── chronicle_component.md  # Portable Chronicle boundary & doc sync rule
 │   ├── subsystems/                 # Detailed per-subsystem reference docs
 │   │   ├── simulation_and_economy.md
 │   │   ├── ships_and_fleets.md
@@ -106,13 +107,20 @@ GalconEmpire/
 │   ├── Managers/                   # Autoloads & scene orchestrators
 │   │   ├── TickManager.cs          # Autoload: simulation clock & TickUpdateSignal
 │   │   ├── AIManager.cs            # Autoload: time-sliced GOAP advisor updates
-│   │   ├── ChronicleManager.cs     # Autoload: SQLite event history (res://saves/chronicle.db)
 │   │   ├── FleetManager.cs         # Autoload: ship design catalog & fleet tick updates
 │   │   ├── EmpireManager.cs        # Scene manager: empire spawning & improvement catalog
 │   │   └── StarManager.cs          # Scene manager: star spawning & spatial queries
-│   ├── Ships/                      # Ship.cs (instance), Fleet.cs (Node2D traversal & colonization)
-│   ├── AI/                         # GoapAdvisor.cs + GOAP/ engine, Goals/, Actions/
-│   └── Chronicle/                  # ChronicleEvent.cs, ChronicleRecord.cs, EventCategory.cs, IChronicleEntity.cs
+│   └── Ships/                      # Ship.cs (instance), Fleet.cs (Node2D traversal & colonization)
+│   └── AI/                         # GoapAdvisor.cs + GOAP/ engine, Goals/, Actions/
+├── Modules/                        # Portable, self-contained game components
+│   └── Chronicle/                  # Portable SQLite event history component (Autoload: ChronicleManager)
+│       ├── ChronicleManager.cs     # Autoload: SQLite event history (res://saves/chronicle.db)
+│       ├── ChronicleEvent.cs       # Fluent event builder & BBCode token formatter
+│       ├── ChronicleRecord.cs      # Record DTO, ChronicleFilter, ChronicleViewMode
+│       ├── EventCategory.cs        # EventCategory & EventPriority enums
+│       ├── IChronicleEntity.cs     # Linkable entity interface & ToChronicleLink()
+│       ├── README.md               # User & developer setup guide
+│       └── AGENT_INTEGRATION.md    # Agentic integration checklist
 ├── Data/                           # Data definitions & .tres blueprints
 │   ├── ImprovementResource.cs      # ImprovementResource, ResourceType, IsStockpileable()
 │   ├── ShipDesignResource.cs       # ShipDesignResource, ShipAbility
@@ -152,6 +160,6 @@ All 10 test suites (`BlackboardTests`, `CameraControllerTest`, `ChronicleManager
 ---
 
 ## 📚 Detailed Documentation References
-- **Custom Rules**: [documentation_sync.md](.agent/rules/documentation_sync.md) | [UI/agents.md](UI/agents.md)
+- **Custom Rules**: [documentation_sync.md](.agent/rules/documentation_sync.md) | [chronicle_component.md](.agent/rules/chronicle_component.md) | [UI/agents.md](UI/agents.md)
 - **Subsystem Docs**: [Simulation & Economy](.agent/subsystems/simulation_and_economy.md) | [Ships & Fleets](.agent/subsystems/ships_and_fleets.md) | [AI & GOAP](.agent/subsystems/ai_and_goap.md) | [Chronicle & Persistence](.agent/subsystems/chronicle_and_persistence.md) | [UI & Camera](.agent/subsystems/ui_and_camera.md)
 - **High-Level Guides & Roadmaps**: [Architecture Overview](.agent/architecture.md) | [Game Design](.agent/game_design.md) | [Testing Guide](.agent/testing_guide.md) | [AI Design](AI_Design.md) | [Ship Design](Ship_Design.md)
