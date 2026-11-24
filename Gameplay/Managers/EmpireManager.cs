@@ -79,6 +79,18 @@ public partial class EmpireManager : Node
             // Non-critical, can proceed.
         }
 
+        if (GameConfig.HasPendingConfig)
+        {
+            int availableStars = StarManager.HasInstance
+                ? StarManager.Instance.NumberOfStarsToSpawn
+                : GameConfig.NumberOfStars;
+            NumberOfEmpiresToSpawn = GameConfig.ClampEmpiresForStars(
+                GameConfig.NumberOfEmpires,
+                availableStars
+            );
+            GameConfig.HasPendingConfig = false;
+        }
+
         if (TickManager.Instance.IsNodeReady())
         {
             OnTickManagerReady();

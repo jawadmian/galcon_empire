@@ -1,4 +1,5 @@
 // e:\Development\Godot\GalconEmpire\Gameplay\StarManager.cs
+using System;
 using System.Collections.Generic;
 using System.Linq; // Required for AsReadOnly() if not already present
 using Godot;
@@ -80,6 +81,11 @@ public partial class StarManager : Node
                 "StarManager: StarNamesResource is not assigned. Stars will use default names."
             );
             // Non-critical, can proceed without names
+        }
+
+        if (GameConfig.HasPendingConfig)
+        {
+            NumberOfStarsToSpawn = GameConfig.NumberOfStars;
         }
 
         _spawnedStars.Clear(); // Clear from previous runs if scene is reloaded
@@ -227,14 +233,17 @@ public partial class StarManager : Node
     {
         RandomizeStarNamesList();
 
+        (Vector2 areaMin, Vector2 areaMax) = GetScaledSpawnBounds(NumberOfStarsToSpawn);
+        int attemptsPerPoint = Math.Max(MaxAttemptsPerPoint, NumberOfStarsToSpawn * 4);
+
         List<Vector2> starSpawnPoints = GenerateNonOverlappingPoints(
             NumberOfStarsToSpawn,
-            SpawnAreaMin.X,
-            SpawnAreaMax.X,
-            SpawnAreaMin.Y,
-            SpawnAreaMax.Y,
+            areaMin.X,
+            areaMax.X,
+            areaMin.Y,
+            areaMax.Y,
             MinStarDistanceSquared,
-            MaxAttemptsPerPoint
+            attemptsPerPoint
         );
 
         int starNameIndex = 0;
@@ -277,6 +286,20 @@ public partial class StarManager : Node
             CallDeferred(Node.MethodName.AddChild, spawnedNode);
         }
         GD.Print($"StarManager: Total stars spawned and tracked: {_spawnedStars.Count}");
+    }
+
+    public (Vector2 Min, Vector2 Max) GetScaledSpawnBounds(int starCount)
+    {
+        if (starCount <= 20)
+        {
+            return (SpawnAreaMin, SpawnAreaMax);
+        }
+
+        Vector2 baseSize = SpawnAreaMax - SpawnAreaMin;
+        Vector2 center = (SpawnAreaMin + SpawnAreaMax) * 0.5f;
+        float scale = Mathf.Sqrt(starCount / 20.0f);
+        Vector2 halfScaled = baseSize * scale * 0.5f;
+        return (center - halfScaled, center + halfScaled);
     }
 
     private void RandomizeStarNamesList()

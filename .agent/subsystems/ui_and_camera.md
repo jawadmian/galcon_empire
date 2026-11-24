@@ -8,6 +8,7 @@ This document maps all user-facing HUD controls, inspector windows, camera navig
 
 | File | Scene / Asset | Role |
 | :--- | :--- | :--- |
+| [MainMenu.cs](../../UI/MainMenu.cs) | [main_menu.tscn](../../UI/main_menu.tscn) | Startup entry scene (`project.godot` main scene). Offers Quick Start (defaults via `GameConfig`), Create New Game detailed setup (Stars `10..100` step `10`, Empires `1..12` clamped to `<= stars`), and disabled Load Game placeholder. |
 | [EmpiresList.cs](../../UI/EmpiresList.cs) | [empires_list.tscn](../../UI/empires_list.tscn) | Top-level HUD roster listing all active empires and the current simulation date (`Year X, Month Y` via `TickManager.FormatDate()`). Clicking an empire opens its `EmpireInfoBox`. Singleton `EmpiresList.Instance`. |
 | [EmpireInfoBox.cs](../../UI/EmpireInfoBox.cs) | [empire_info_box.tscn](../../UI/empire_info_box.tscn) | Single-instance draggable empire dossier panel (`EmpireInfoBox.OpenForEmpire()`, header badge `EMPIRE`). Displays population, Food/Ore/Money stockpiles + per-month deltas, controlled star systems, active construction projects, and camera focus button. |
 | [StarInfoBox.cs](../../UI/StarInfoBox.cs) | [star_info_box.tscn](../../UI/star_info_box.tscn) | Single-instance draggable star inspector (`StarInfoBox.OpenForStar()`, header badge `STAR SYSTEM`). Opened via clicking a `Star`'s `Area2D`. Displays star name, coordinates, `StarType`, population + progress bar, yields, building cap usage (`FACILITIES (installed / max)`), installed improvements (live-updating), orbiting ships (`%OrbitingList`, clickable to open `ShipInfoBox`), and focus button. |
@@ -40,6 +41,7 @@ This document maps all user-facing HUD controls, inspector windows, camera navig
 - **Display New Simulation Metrics** (e.g., `ShipyardProduction`, active ship queues, Chronicle log tab): Add `%NodeName` labels/containers to `EmpireInfoBox` / `StarInfoBox` via MCP, then bind in their `Refresh*()` methods.
 
 ## 4. Related Tests
+- [MainMenuTest.cs](../../Tests/MainMenuTest.cs) — Main menu state, disabled Load button, Star/Empire setup constraints, `GameConfig`, scaled spawn bounds, and name pool sizes.
 - [StarInfoBoxTest.cs](../../Tests/StarInfoBoxTest.cs) — Data binding, live improvement updates, NinePatchRect margins, button non-overlap, star type modulation.
 - [EmpireInfoBoxTest.cs](../../Tests/EmpireInfoBoxTest.cs) — Scene load, NinePatchRect margins, empire data & construction display, camera focus.
 - [FleetAndShipInfoBoxTest.cs](../../Tests/FleetAndShipInfoBoxTest.cs) — Fleet/Ship Chronicle lifecycle events, `FleetInfoBox` & `ShipInfoBox` scene loading, NinePatchRect margins, ship buttons, and Chronicle rendering.

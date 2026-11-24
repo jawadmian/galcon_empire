@@ -1,6 +1,7 @@
 using Godot;
 
 // This makes your custom resource type available in the Godot editor
+[Tool]
 [GlobalClass]
 public partial class StringArrayResource : Resource
 {
