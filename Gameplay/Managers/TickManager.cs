@@ -22,6 +22,9 @@ public partial class TickManager : Node
     }
 
     public const float DefaultTickInterval = 1.0f;
+    public const float MinSpeedMultiplier = 0.25f;
+    public const float MaxSpeedMultiplier = 4.0f;
+    private static readonly float[] SpeedSteps = { 0.25f, 0.5f, 1.0f, 2.0f, 4.0f };
 
     public int tickCount = 0;
     public float TickUpdateInterval { get; set; } = DefaultTickInterval; // 1 tick (1 month) per second at 1x speed
@@ -49,7 +52,43 @@ public partial class TickManager : Node
         }
 
         IsPaused = false;
-        TickUpdateInterval = DefaultTickInterval / multiplier;
+        float clamped = Mathf.Clamp(multiplier, MinSpeedMultiplier, MaxSpeedMultiplier);
+        TickUpdateInterval = DefaultTickInterval / clamped;
+    }
+
+    public void DoubleSpeed()
+    {
+        int idx = GetNearestSpeedStepIndex();
+        if (idx < SpeedSteps.Length - 1)
+        {
+            TickUpdateInterval = DefaultTickInterval / SpeedSteps[idx + 1];
+        }
+    }
+
+    public void HalveSpeed()
+    {
+        int idx = GetNearestSpeedStepIndex();
+        if (idx > 0)
+        {
+            TickUpdateInterval = DefaultTickInterval / SpeedSteps[idx - 1];
+        }
+    }
+
+    private int GetNearestSpeedStepIndex()
+    {
+        float current = SpeedMultiplier;
+        int bestIdx = 2; // 1.0x default
+        float bestDiff = float.MaxValue;
+        for (int i = 0; i < SpeedSteps.Length; i++)
+        {
+            float diff = Mathf.Abs(SpeedSteps[i] - current);
+            if (diff < bestDiff)
+            {
+                bestDiff = diff;
+                bestIdx = i;
+            }
+        }
+        return bestIdx;
     }
 
     /// <summary>

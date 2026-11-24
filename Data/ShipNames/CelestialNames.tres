@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ShipNameCollectionResource" format=3 uid="uid://dlseeq7hfut3h"]
+
+[ext_resource type="Script" uid="uid://ddcxsy50rek0v" path="res://Data/ShipNameCollectionResource.cs" id="1_d5y4s"]
+
+[resource]
+script = ExtResource("1_d5y4s")
+CollectionName = "Celestial"
+SmallShipNames = Array[String](["Dart", "Flare", "Meteor", "Pulse", "Bolt", "NovaStrike", "IonLance", "Flash"])
+MediumShipNames = Array[String](["Pulsar", "Quasar", "Eclipse", "Magnetar", "Corona", "Vortex", "Blazar", "zenith"])
+LargeShipNames = Array[String](["Supernova", "Singularity", "Dominion", "Hypergiant", "Apex", "Voidstar", "Cataclysm", "Eventide"])
+NonCombatSmallShipNames = Array[String](["Wisp", "Comet", "Photon", "Spark", "Glimmer", "Stardust", "Lumen", "Prism"])
+NonCombatMediumShipNames = Array[String](["Nebula", "Horizon", "Solstice", "Equinox", "Luminance", "Meridian", "Perihelion", "Apogee"])
+NonCombatLargeShipNames = Array[String](["Cosmos", "Eternity", "Astral", "Galaxia", "Celestia", "Aurora", "Aether", "Radiance"])

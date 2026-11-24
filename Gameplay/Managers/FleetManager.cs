@@ -27,8 +27,16 @@ public partial class FleetManager : Node
     [Export(PropertyHint.Dir)]
     public string ShipDesignsFolderPath { get; set; } = "res://Data/Ships";
 
+    [Export(PropertyHint.Dir)]
+    public string ShipNameCollectionsFolderPath { get; set; } = "res://Data/ShipNames";
+
     private readonly List<ShipDesignResource> _shipDesigns = new List<ShipDesignResource>();
     public IReadOnlyList<ShipDesignResource> AvailableShipDesigns => _shipDesigns.AsReadOnly();
+
+    private readonly List<ShipNameCollectionResource> _shipNameCollections =
+        new List<ShipNameCollectionResource>();
+    public IReadOnlyList<ShipNameCollectionResource> AvailableShipNameCollections =>
+        _shipNameCollections.AsReadOnly();
 
     private readonly List<Fleet> _fleets = new List<Fleet>();
     public IReadOnlyList<Fleet> ActiveFleets => _fleets.AsReadOnly();
@@ -52,6 +60,7 @@ public partial class FleetManager : Node
             return;
 
         LoadShipDesigns();
+        LoadShipNameCollections();
 
         if (TickManager.HasInstance)
         {
@@ -93,12 +102,12 @@ public partial class FleetManager : Node
 
     public void UpdateTick()
     {
-        for (int i = _fleets.Count - 1; i >= 0; i--)
+        var snapshot = new List<Fleet>(_fleets);
+        foreach (Fleet fleet in snapshot)
         {
-            Fleet fleet = _fleets[i];
             if (fleet == null || !GodotObject.IsInstanceValid(fleet) || fleet.IsQueuedForDeletion())
             {
-                _fleets.RemoveAt(i);
+                _fleets.Remove(fleet);
                 continue;
             }
 
@@ -106,7 +115,7 @@ public partial class FleetManager : Node
 
             if (fleet.IsEmpty || fleet.IsQueuedForDeletion())
             {
-                _fleets.RemoveAt(i);
+                _fleets.Remove(fleet);
             }
         }
     }
@@ -148,6 +157,41 @@ public partial class FleetManager : Node
             fileName = dir.GetNext();
         }
         GD.Print($"FleetManager: Loaded {_shipDesigns.Count} ship design(s) from {ShipDesignsFolderPath}.");
+    }
+
+    public void LoadShipNameCollections()
+    {
+        _shipNameCollections.Clear();
+        if (string.IsNullOrEmpty(ShipNameCollectionsFolderPath))
+            return;
+
+        using var dir = DirAccess.Open(ShipNameCollectionsFolderPath);
+        if (dir == null)
+        {
+            GD.PushWarning(
+                $"FleetManager: Could not open ship name collections folder at '{ShipNameCollectionsFolderPath}'. Error: {DirAccess.GetOpenError()}"
+            );
+            return;
+        }
+
+        dir.ListDirBegin();
+        string fileName = dir.GetNext();
+        while (!string.IsNullOrEmpty(fileName))
+        {
+            if (!dir.CurrentIsDir() && fileName.EndsWith(".tres"))
+            {
+                string fullPath = $"{ShipNameCollectionsFolderPath}/{fileName}";
+                var collection = ResourceLoader.Load<ShipNameCollectionResource>(fullPath);
+                if (collection != null)
+                {
+                    _shipNameCollections.Add(collection);
+                }
+            }
+            fileName = dir.GetNext();
+        }
+        GD.Print(
+            $"FleetManager: Loaded {_shipNameCollections.Count} ship name collection(s) from {ShipNameCollectionsFolderPath}."
+        );
     }
 
     public ShipDesignResource GetDesignById(string designId)

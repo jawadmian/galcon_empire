@@ -7,6 +7,8 @@ using Godot;
 public class Ship : IChronicleEntity
 {
     public string ShipId { get; }
+    public string ShipName { get; set; }
+    public string ClassName { get; set; }
     public ShipDesignResource Design { get; }
     public int CurrentHitPoints { get; set; }
     public int CommissionedTick { get; set; }
@@ -15,7 +17,7 @@ public class Ship : IChronicleEntity
 
     // IChronicleEntity implementation
     public string ChronicleId => $"ship:{ShipId}";
-    public string ChronicleName => Design?.DesignName ?? "Ship";
+    public string ChronicleName => !string.IsNullOrEmpty(ShipName) ? ShipName : (Design?.DesignName ?? "Ship");
     public string ChronicleType => "ship";
     public Vector2? WorldPosition =>
         CurrentFleet != null && GodotObject.IsInstanceValid(CurrentFleet)
@@ -34,6 +36,8 @@ public class Ship : IChronicleEntity
     {
         Design = design ?? throw new ArgumentNullException(nameof(design));
         ShipId = Guid.NewGuid().ToString("N")[..8];
+        ShipName = design.DesignName;
+        ClassName = design.DesignName;
         CurrentHitPoints = design.MaxHitPoints;
     }
 

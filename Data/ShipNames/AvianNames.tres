@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ShipNameCollectionResource" format=3 uid="uid://m3jh6f70dy2b"]
+
+[ext_resource type="Script" uid="uid://ddcxsy50rek0v" path="res://Data/ShipNameCollectionResource.cs" id="1_hxl17"]
+
+[resource]
+script = ExtResource("1_hxl17")
+CollectionName = "Avian"
+SmallShipNames = Array[String](["Kestrel", "Sparrowhawk", "Merlin", "Shrike", "Falcon", "Talon", "Hobby", "Dartwing"])
+MediumShipNames = Array[String](["Hawk", "Osprey", "Harrier", "Goshawk", "Peregrine", "Raptor", "Kite", "Buzzard"])
+LargeShipNames = Array[String](["Eagle", "Condor", "Roc", "Thunderbird", "Gyrfalcon", "Warhawk", "GoldenEagle", "SkyKing"])
+NonCombatSmallShipNames = Array[String](["Wren", "Swallow", "Lark", "Finch", "Swift", "Robin", "Sparrow", "Starling"])
+NonCombatMediumShipNames = Array[String](["Tern", "Gull", "Kingfisher", "Puffin", "Cormorant", "Curlew", "Plover", "Sandpiper"])
+NonCombatLargeShipNames = Array[String](["Swan", "Stork", "Albatross", "Flamingo", "Pelican", "Crane", "Ibis", "Heron"])

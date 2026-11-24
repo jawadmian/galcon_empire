@@ -166,7 +166,7 @@ public partial class FleetAndShipInfoBoxTest
         AssertThat(statusLabel.AutowrapMode).IsEqual(TextServer.AutowrapMode.WordSmart);
         AssertThat(speedLabel.AutowrapMode).IsEqual(TextServer.AutowrapMode.WordSmart);
 
-        AssertThat(nameLabel.Text).Contains("ARK-CLASS COLONY SHIP");
+        AssertThat(nameLabel.Text).Contains("1ST FLEET");
         AssertThat(statusLabel.Text).Contains("Altair");
         AssertThat(shipsList.GetChildCount()).IsEqual(1);
         var shipButton = shipsList.GetChild(0) as Button;
@@ -236,40 +236,60 @@ public partial class FleetAndShipInfoBoxTest
         debugUi._Ready();
 
         var statusLabel = debugUi.GetNodeOrNull<Label>("%SpeedStatusLabel");
+        var slowDownBtn = debugUi.GetNodeOrNull<Button>("%SlowDownButton");
         var pauseBtn = debugUi.GetNodeOrNull<Button>("%PauseButton");
-        var slowBtn = debugUi.GetNodeOrNull<Button>("%SlowButton");
-        var normalBtn = debugUi.GetNodeOrNull<Button>("%NormalButton");
-        var fastBtn = debugUi.GetNodeOrNull<Button>("%FastButton");
+        var speedUpBtn = debugUi.GetNodeOrNull<Button>("%SpeedUpButton");
 
         AssertThat(statusLabel).IsNotNull();
+        AssertThat(slowDownBtn).IsNotNull();
         AssertThat(pauseBtn).IsNotNull();
-        AssertThat(slowBtn).IsNotNull();
-        AssertThat(normalBtn).IsNotNull();
-        AssertThat(fastBtn).IsNotNull();
+        AssertThat(speedUpBtn).IsNotNull();
         AssertThat(statusLabel.Text).IsEqual("SPEED: 1x");
+        AssertThat(pauseBtn.Text).IsEqual("||");
 
-        fastBtn.EmitSignal(Button.SignalName.Pressed);
-        AssertThat(tm.TickUpdateInterval).IsEqual(0.25f);
+        // Double speed: 1x -> 2x -> 4x (capped at 4x)
+        speedUpBtn.EmitSignal(Button.SignalName.Pressed);
+        AssertThat(tm.SpeedMultiplier).IsEqual(2.0f);
+        AssertThat(statusLabel.Text).IsEqual("SPEED: 2x");
+
+        speedUpBtn.EmitSignal(Button.SignalName.Pressed);
         AssertThat(tm.SpeedMultiplier).IsEqual(4.0f);
         AssertThat(statusLabel.Text).IsEqual("SPEED: 4x");
+        AssertThat(speedUpBtn.Disabled).IsTrue();
 
-        slowBtn.EmitSignal(Button.SignalName.Pressed);
-        AssertThat(tm.TickUpdateInterval).IsEqual(4.0f);
+        speedUpBtn.EmitSignal(Button.SignalName.Pressed);
+        AssertThat(tm.SpeedMultiplier).IsEqual(4.0f);
+
+        // Halve speed: 4x -> 2x -> 1x -> 0.5x -> 0.25x (capped at 0.25x)
+        slowDownBtn.EmitSignal(Button.SignalName.Pressed);
+        AssertThat(tm.SpeedMultiplier).IsEqual(2.0f);
+        slowDownBtn.EmitSignal(Button.SignalName.Pressed);
+        AssertThat(tm.SpeedMultiplier).IsEqual(1.0f);
+        slowDownBtn.EmitSignal(Button.SignalName.Pressed);
+        AssertThat(tm.SpeedMultiplier).IsEqual(0.5f);
+        AssertThat(statusLabel.Text).IsEqual("SPEED: 0.5x");
+        slowDownBtn.EmitSignal(Button.SignalName.Pressed);
         AssertThat(tm.SpeedMultiplier).IsEqual(0.25f);
         AssertThat(statusLabel.Text).IsEqual("SPEED: 0.25x");
+        AssertThat(slowDownBtn.Disabled).IsTrue();
 
+        // Pause toggle
         pauseBtn.EmitSignal(Button.SignalName.Pressed);
         AssertThat(tm.IsPaused).IsTrue();
-        AssertThat(pauseBtn.Text).IsEqual("RESUME");
+        AssertThat(pauseBtn.Text).IsEqual("▶");
         AssertThat(statusLabel.Text).Contains("PAUSED");
 
         int ticksBefore = tm.tickCount;
         tm._Process(5.0);
         AssertThat(tm.tickCount).IsEqual(ticksBefore);
 
-        normalBtn.EmitSignal(Button.SignalName.Pressed);
+        pauseBtn.EmitSignal(Button.SignalName.Pressed);
         AssertThat(tm.IsPaused).IsFalse();
-        AssertThat(tm.TickUpdateInterval).IsEqual(1.0f);
+        AssertThat(pauseBtn.Text).IsEqual("||");
+
+        // Reset to 1x
+        tm.SetSpeedMultiplier(1.0f);
+        debugUi.RefreshSpeedDisplay();
         AssertThat(statusLabel.Text).IsEqual("SPEED: 1x");
     }
 

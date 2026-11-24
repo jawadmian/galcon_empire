@@ -1,6 +1,19 @@
 using Godot;
 using Godot.Collections;
 
+public enum ShipSizeCategory
+{
+    Small,
+    Medium,
+    Large,
+}
+
+public enum ShipRoleCategory
+{
+    Combat,
+    NonCombat,
+}
+
 public enum ShipAbility
 {
     Colonize,
@@ -23,6 +36,12 @@ public partial class ShipDesignResource : Resource
 
     [Export]
     public string Description { get; set; } = string.Empty;
+
+    [Export]
+    public ShipSizeCategory SizeCategory { get; set; } = ShipSizeCategory.Medium;
+
+    [Export]
+    public ShipRoleCategory RoleCategory { get; set; } = ShipRoleCategory.Combat;
 
     [ExportGroup("Stats")]
     [Export]

@@ -245,6 +245,7 @@ public partial class FleetInfoBox : Control
 
         foreach (Node child in _shipsList.GetChildren())
         {
+            _shipsList.RemoveChild(child);
             child.QueueFree();
         }
 
@@ -266,7 +267,7 @@ public partial class FleetInfoBox : Control
             Ship capturedShip = ship;
             var btn = new Button
             {
-                Text = $"{ship.Design?.DesignName ?? "Ship"}  ({ship.CurrentHitPoints}/{ship.MaxHitPoints} HP)",
+                Text = $"{ship.ChronicleName} ({ship.ClassName})  ({ship.CurrentHitPoints}/{ship.MaxHitPoints} HP)",
                 Alignment = HorizontalAlignment.Left,
                 ClipText = true,
                 TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis,
@@ -310,6 +311,7 @@ public partial class FleetInfoBox : Control
 
         foreach (Node child in _chronicleList.GetChildren())
         {
+            _chronicleList.RemoveChild(child);
             child.QueueFree();
         }
 

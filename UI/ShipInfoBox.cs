@@ -176,9 +176,9 @@ public partial class ShipInfoBox : Control
 
         if (_classLabel != null)
         {
-            string designId = _currentShip.Design?.DesignId ?? "unknown";
+            string className = _currentShip.ClassName ?? _currentShip.Design?.DesignName ?? "Unknown";
             int techLvl = _currentShip.Design?.RequiredTechLevel ?? 1;
-            _classLabel.Text = $"DESIGN: {designId} | TECH LVL {techLvl}";
+            _classLabel.Text = $"CLASS: {className} | TECH LVL {techLvl}";
         }
 
         if (_originLabel != null)
@@ -245,6 +245,7 @@ public partial class ShipInfoBox : Control
 
         foreach (Node child in _chronicleList.GetChildren())
         {
+            _chronicleList.RemoveChild(child);
             child.QueueFree();
         }
 

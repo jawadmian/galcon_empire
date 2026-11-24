@@ -428,4 +428,271 @@ public partial class ShipSystemTests
         clamped.Free();
         manager.Free();
     }
+
+    [TestCase]
+    public void TestShipNameCollectionAndLeadShipClassNaming()
+    {
+        var nautical = GD.Load<ShipNameCollectionResource>("res://Data/ShipNames/NauticalNames.tres");
+        AssertThat(nautical).IsNotNull();
+        AssertThat(nautical.NonCombatSmallShipNames.Contains("Minnow")).IsTrue();
+        AssertThat(nautical.NonCombatLargeShipNames.Contains("Beluga")).IsTrue();
+        AssertThat(nautical.SmallShipNames.Contains("Piranha")).IsTrue();
+        AssertThat(nautical.LargeShipNames.Contains("Orca")).IsTrue();
+
+        // Verify all 5 themes load cleanly
+        var themes = new[]
+        {
+            "res://Data/ShipNames/NauticalNames.tres",
+            "res://Data/ShipNames/MythologyNames.tres",
+            "res://Data/ShipNames/CelestialNames.tres",
+            "res://Data/ShipNames/ImperialVirtuesNames.tres",
+            "res://Data/ShipNames/AvianNames.tres",
+        };
+        foreach (string path in themes)
+        {
+            var theme = GD.Load<ShipNameCollectionResource>(path);
+            AssertThat(theme).IsNotNull();
+            AssertThat(theme.SmallShipNames.Count).IsGreater(0);
+            AssertThat(theme.NonCombatSmallShipNames.Count).IsGreater(0);
+        }
+
+        var empire = new Empire
+        {
+            EmpireName = "Obscurus Combine",
+            ShipNameCollection = nautical,
+        };
+        var colonyDesign = new ShipDesignResource
+        {
+            DesignId = "colony_ship_v1",
+            DesignName = "Ark-Class Colony Ship",
+            SizeCategory = ShipSizeCategory.Large,
+            RoleCategory = ShipRoleCategory.NonCombat,
+        };
+        var warshipDesign = new ShipDesignResource
+        {
+            DesignId = "battleship_v1",
+            DesignName = "Dreadnought",
+            SizeCategory = ShipSizeCategory.Large,
+            RoleCategory = ShipRoleCategory.Combat,
+        };
+
+        // Non-combat vessels draw from NonCombat pool
+        var firstColony = new Ship(colonyDesign);
+        empire.AssignShipAndClassName(firstColony);
+        AssertThat(firstColony.ShipName).IsEqual("Beluga");
+        AssertThat(firstColony.ClassName).IsEqual("Beluga-Class");
+        AssertThat(firstColony.ChronicleName).IsEqual("Beluga");
+
+        var secondColony = new Ship(colonyDesign);
+        empire.AssignShipAndClassName(secondColony);
+        AssertThat(secondColony.ShipName).IsEqual("Manatee");
+        AssertThat(secondColony.ClassName).IsEqual("Beluga-Class");
+
+        // Combat vessels draw separately from Combat pool
+        var firstWarship = new Ship(warshipDesign);
+        empire.AssignShipAndClassName(firstWarship);
+        AssertThat(firstWarship.ShipName).IsEqual("Orca");
+        AssertThat(firstWarship.ClassName).IsEqual("Orca-Class");
+
+        // Exhaust remaining 6 names in NonCombatLargeShipNames (total 8) and verify numbered suffix
+        for (int i = 0; i < 6; i++)
+        {
+            var extra = new Ship(colonyDesign);
+            empire.AssignShipAndClassName(extra);
+        }
+
+        var ninthColony = new Ship(colonyDesign);
+        empire.AssignShipAndClassName(ninthColony);
+        AssertThat(ninthColony.ShipName).IsEqual("Beluga 2");
+        AssertThat(ninthColony.ClassName).IsEqual("Beluga-Class");
+
+        // Verify ordinal fleet naming
+        AssertThat(empire.GetNextFleetName()).IsEqual("1st Fleet");
+        AssertThat(empire.GetNextFleetName()).IsEqual("2nd Fleet");
+        AssertThat(empire.GetNextFleetName()).IsEqual("3rd Fleet");
+
+        empire.Free();
+    }
+
+    [TestCase]
+    public void TestMultiTickColonizationDivertsWhenTargetClaimed()
+    {
+        var previousStarManager = StarManager.HasInstance ? StarManager.Instance : null;
+        var starManager = new StarManager();
+        StarManager.SetInstanceForTesting(starManager);
+
+        var empireA = new Empire { EmpireName = "Sovereign Concordat", EmpireColor = Colors.Gold };
+        var empireB = new Empire { EmpireName = "Rival Syndicate", EmpireColor = Colors.Red };
+        var homeA = new Star { StarName = "Home", Position = new Vector2(0, 0) };
+        var primaryTarget = new Star { StarName = "Alpha", Position = new Vector2(160, 0) };
+        primaryTarget.SetSystemSize(12);
+        var backupTarget = new Star { StarName = "Beta", Position = new Vector2(160, 120) };
+        backupTarget.SetSystemSize(8);
+
+        try
+        {
+            empireA.HomeStar = homeA;
+            starManager.RegisterStar(homeA);
+            starManager.RegisterStar(primaryTarget);
+            starManager.RegisterStar(backupTarget);
+
+            var advisor = new GoapAdvisor(empireA);
+
+            var fleet = new Fleet();
+            fleet.Initialize(empireA, homeA, new Ship(CreateColonyShipDesign(speed: 40f)));
+            empireA.RegisterFleet(fleet);
+
+            // Tick 1: Sensor update + ColonizeAction picks highest-priority target (Alpha)
+            advisor.Recommend(empireA);
+            var colonizeAction = new ColonizeAction();
+            AssertThat(colonizeAction.CheckPreconditions(advisor.State)).IsTrue();
+            AssertThat(colonizeAction.Perform(empireA, advisor.State)).IsTrue();
+            AssertThat(fleet.DestinationStar).IsEqual(primaryTarget);
+            AssertThat(fleet.State).IsEqual(FleetState.InTransit);
+
+            // Tick 2: Fleet moves 40u toward Alpha (now at x=40)
+            fleet.UpdateTick();
+            AssertThat(fleet.Position).IsEqual(new Vector2(40, 0));
+            AssertThat(fleet.State).IsEqual(FleetState.InTransit);
+
+            // Empire B claims Alpha mid-flight!
+            empireB.AddStar(primaryTarget);
+
+            // Tick 3: Fleet detects Alpha was claimed and diverts to Beta, moving toward it
+            fleet.UpdateTick();
+            AssertThat(fleet.DestinationStar).IsEqual(backupTarget);
+            AssertThat(fleet.CurrentOrder).IsEqual(FleetOrderType.Colonize);
+            AssertThat(fleet.State).IsEqual(FleetState.InTransit);
+
+            // Subsequent ticks: Fleet reaches Beta and colonizes it
+            for (int t = 0; t < 10 && fleet.State == FleetState.InTransit; t++)
+            {
+                fleet.UpdateTick();
+            }
+
+            AssertThat(backupTarget.OwningEmpire).IsEqual(empireA);
+            AssertThat(fleet.IsEmpty).IsTrue();
+
+            fleet.Free();
+        }
+        finally
+        {
+            StarManager.SetInstanceForTesting(previousStarManager);
+            starManager.Free();
+            empireA.Free();
+            empireB.Free();
+            homeA.Free();
+            primaryTarget.Free();
+            backupTarget.Free();
+        }
+    }
+
+    [TestCase]
+    public void TestMultiTickColonizationReturnsHomeWhenNoTargetsRemain()
+    {
+        var previousStarManager = StarManager.HasInstance ? StarManager.Instance : null;
+        var starManager = new StarManager();
+        StarManager.SetInstanceForTesting(starManager);
+
+        var empireA = new Empire { EmpireName = "Sovereign Concordat", EmpireColor = Colors.Gold };
+        var empireB = new Empire { EmpireName = "Rival Syndicate", EmpireColor = Colors.Red };
+        var homeA = new Star { StarName = "Home", Position = new Vector2(0, 0) };
+        var onlyTarget = new Star { StarName = "Frontier", Position = new Vector2(160, 0) };
+
+        try
+        {
+            empireA.HomeStar = homeA;
+            starManager.RegisterStar(homeA);
+            starManager.RegisterStar(onlyTarget);
+
+            var fleet = new Fleet();
+            fleet.Initialize(empireA, homeA, new Ship(CreateColonyShipDesign(speed: 40f)));
+            empireA.RegisterFleet(fleet);
+
+            fleet.OrderColonize(onlyTarget);
+            AssertThat(fleet.State).IsEqual(FleetState.InTransit);
+
+            // Advance 2 ticks mid-flight (fleet reaches x = 80)
+            fleet.UpdateTick();
+            fleet.UpdateTick();
+            AssertThat(fleet.Position).IsEqual(new Vector2(80, 0));
+
+            // Rival claims the only remaining unowned star
+            empireB.AddStar(onlyTarget);
+
+            // Next tick: No unowned stars remain -> fleet orders return home (not stuck in space!)
+            fleet.UpdateTick();
+            AssertThat(fleet.DestinationStar).IsEqual(homeA);
+            AssertThat(fleet.CurrentOrder).IsEqual(FleetOrderType.MoveTo);
+            AssertThat(fleet.State).IsEqual(FleetState.InTransit);
+            AssertThat(fleet.Position).IsEqual(new Vector2(40, 0));
+
+            // Next tick: Fleet arrives safely back at Home
+            fleet.UpdateTick();
+            AssertThat(fleet.Position).IsEqual(homeA.Position);
+            AssertThat(fleet.State).IsEqual(FleetState.InOrbit);
+            AssertThat(fleet.OrbitingStar).IsEqual(homeA);
+            AssertThat(fleet.IsIdle).IsTrue();
+            AssertThat(fleet.HasAbility(ShipAbility.Colonize)).IsTrue();
+
+            fleet.Free();
+        }
+        finally
+        {
+            StarManager.SetInstanceForTesting(previousStarManager);
+            starManager.Free();
+            empireA.Free();
+            empireB.Free();
+            homeA.Free();
+            onlyTarget.Free();
+        }
+    }
+
+    [TestCase]
+    public void TestFleetManagerColonizationDoesNotEvictSiblingFleets()
+    {
+        var fm = new FleetManager();
+        var empireA = new Empire { EmpireName = "Obscurus Combine" };
+        var empireB = new Empire { EmpireName = "Stellar Dominion" };
+        var homeA = new Star { StarName = "Muhlifain", Position = new Vector2(0, 0) };
+        var starA = new Star { StarName = "Nashira", Position = new Vector2(40, 0) };
+        var homeB = new Star { StarName = "Ascella", Position = new Vector2(0, 500) };
+        var starB = new Star { StarName = "Sheratan", Position = new Vector2(120, 500) };
+
+        try
+        {
+            var fleetA = fm.SpawnFleet(empireA, homeA, new Ship(CreateColonyShipDesign(speed: 40f)));
+            var fleetB = fm.SpawnFleet(empireB, homeB, new Ship(CreateColonyShipDesign(speed: 40f)));
+            empireA.RegisterFleet(fleetA);
+            empireB.RegisterFleet(fleetB);
+
+            fleetA.OrderColonize(starA); // Arrives & disbands on tick 1
+            fleetB.OrderColonize(starB); // Needs 3 ticks to arrive
+
+            // Tick 1: fleetA colonizes starA and disbands; fleetB must remain tracked and advance
+            fm.UpdateTick();
+            AssertThat(starA.OwningEmpire).IsEqual(empireA);
+            AssertThat(fm.ActiveFleets.Count).IsEqual(1);
+            AssertThat(fm.ActiveFleets[0]).IsEqual(fleetB);
+            AssertThat(fleetB.Position).IsEqual(new Vector2(40, 500));
+
+            // Tick 2 & 3: fleetB finishes its journey and colonizes starB
+            fm.UpdateTick();
+            fm.UpdateTick();
+            AssertThat(starB.OwningEmpire).IsEqual(empireB);
+
+            if (GodotObject.IsInstanceValid(fleetA)) fleetA.Free();
+            if (GodotObject.IsInstanceValid(fleetB)) fleetB.Free();
+        }
+        finally
+        {
+            fm.Free();
+            empireA.Free();
+            empireB.Free();
+            homeA.Free();
+            starA.Free();
+            homeB.Free();
+            starB.Free();
+        }
+    }
 }

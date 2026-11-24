@@ -4,32 +4,27 @@ using Godot;
 public partial class DebugUi : Control
 {
     private Label _gameSpeedLabel;
+    private Button _slowDownButton;
     private Button _pauseButton;
-    private Button _slowButton;
-    private Button _normalButton;
-    private Button _fastButton;
+    private Button _speedUpButton;
 
     public override void _Ready()
     {
         _gameSpeedLabel = GetNodeOrNull<Label>("%SpeedStatusLabel") ?? GetNodeOrNull<Label>("VBoxContainer/Label");
+        _slowDownButton = GetNodeOrNull<Button>("%SlowDownButton");
         _pauseButton = GetNodeOrNull<Button>("%PauseButton");
-        _slowButton = GetNodeOrNull<Button>("%SlowButton");
-        _normalButton = GetNodeOrNull<Button>("%NormalButton");
-        _fastButton = GetNodeOrNull<Button>("%FastButton");
+        _speedUpButton = GetNodeOrNull<Button>("%SpeedUpButton");
 
+        if (_slowDownButton != null)
+            _slowDownButton.Pressed += OnSlowDownPressed;
         if (_pauseButton != null)
             _pauseButton.Pressed += OnPausePressed;
-        if (_slowButton != null)
-            _slowButton.Pressed += OnSlowPressed;
-        if (_normalButton != null)
-            _normalButton.Pressed += OnNormalPressed;
-        if (_fastButton != null)
-            _fastButton.Pressed += OnFastPressed;
+        if (_speedUpButton != null)
+            _speedUpButton.Pressed += OnSpeedUpPressed;
 
+        ApplyButtonStyles(_slowDownButton);
         ApplyButtonStyles(_pauseButton);
-        ApplyButtonStyles(_slowButton);
-        ApplyButtonStyles(_normalButton);
-        ApplyButtonStyles(_fastButton);
+        ApplyButtonStyles(_speedUpButton);
 
         RefreshSpeedDisplay();
     }
@@ -56,6 +51,13 @@ public partial class DebugUi : Control
             btn.AddThemeStyleboxOverride("pressed", pressedStyle);
     }
 
+    private void OnSlowDownPressed()
+    {
+        if (!TickManager.HasInstance) return;
+        TickManager.Instance.HalveSpeed();
+        RefreshSpeedDisplay();
+    }
+
     private void OnPausePressed()
     {
         if (!TickManager.HasInstance) return;
@@ -63,24 +65,10 @@ public partial class DebugUi : Control
         RefreshSpeedDisplay();
     }
 
-    private void OnSlowPressed()
+    private void OnSpeedUpPressed()
     {
         if (!TickManager.HasInstance) return;
-        TickManager.Instance.SetSpeedMultiplier(0.25f);
-        RefreshSpeedDisplay();
-    }
-
-    private void OnNormalPressed()
-    {
-        if (!TickManager.HasInstance) return;
-        TickManager.Instance.SetSpeedMultiplier(1.0f);
-        RefreshSpeedDisplay();
-    }
-
-    private void OnFastPressed()
-    {
-        if (!TickManager.HasInstance) return;
-        TickManager.Instance.SetSpeedMultiplier(4.0f);
+        TickManager.Instance.DoubleSpeed();
         RefreshSpeedDisplay();
     }
 
@@ -106,26 +94,32 @@ public partial class DebugUi : Control
 
         if (_pauseButton != null)
         {
-            _pauseButton.Text = paused ? "RESUME" : "PAUSE";
+            _pauseButton.Text = paused ? "▶" : "||";
             _pauseButton.AddThemeColorOverride("font_color", paused ? new Color("ffd700") : new Color("00e5ff"));
         }
 
-        UpdateSpeedButtonHighlight(_slowButton, !paused && Mathf.IsEqualApprox(mult, 0.25f));
-        UpdateSpeedButtonHighlight(_normalButton, !paused && Mathf.IsEqualApprox(mult, 1.0f));
-        UpdateSpeedButtonHighlight(_fastButton, !paused && Mathf.IsEqualApprox(mult, 4.0f));
+        if (_slowDownButton != null)
+        {
+            bool atMin = mult <= TickManager.MinSpeedMultiplier + 0.001f;
+            _slowDownButton.Disabled = atMin;
+            _slowDownButton.AddThemeColorOverride("font_color", atMin ? new Color("556b82") : new Color("00e5ff"));
+        }
+
+        if (_speedUpButton != null)
+        {
+            bool atMax = mult >= TickManager.MaxSpeedMultiplier - 0.001f;
+            _speedUpButton.Disabled = atMax;
+            _speedUpButton.AddThemeColorOverride("font_color", atMax ? new Color("556b82") : new Color("00e5ff"));
+        }
     }
 
     private static string FormatMultiplier(float mult)
     {
         if (Mathf.IsEqualApprox(mult, 0.25f)) return "0.25x";
+        if (Mathf.IsEqualApprox(mult, 0.5f)) return "0.5x";
         if (Mathf.IsEqualApprox(mult, 1.0f)) return "1x";
+        if (Mathf.IsEqualApprox(mult, 2.0f)) return "2x";
         if (Mathf.IsEqualApprox(mult, 4.0f)) return "4x";
         return $"{mult:0.##}x";
-    }
-
-    private static void UpdateSpeedButtonHighlight(Button btn, bool active)
-    {
-        if (btn == null) return;
-        btn.AddThemeColorOverride("font_color", active ? new Color("ffd700") : new Color("8fa3bf"));
     }
 }

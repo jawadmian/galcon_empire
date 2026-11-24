@@ -130,11 +130,15 @@ public partial class Fleet : Node2D, IChronicleEntity
         if (initialShip != null)
         {
             AddShip(initialShip);
-            FleetName = $"{owner?.EmpireName ?? "Independent"} {initialShip.Design.DesignName}";
+            FleetName = owner != null
+                ? owner.GetNextFleetName()
+                : $"{initialShip.ChronicleName} Fleet";
         }
         else
         {
-            FleetName = $"{owner?.EmpireName ?? "Independent"} Fleet {FleetId}";
+            FleetName = owner != null
+                ? owner.GetNextFleetName()
+                : $"Independent Fleet {FleetId}";
         }
 
         Name = $"Fleet_{FleetId}";
@@ -248,7 +252,7 @@ public partial class Fleet : Node2D, IChronicleEntity
             return;
         }
 
-        // If heading to colonize a star that was claimed mid-flight, redirect immediately
+        // If heading to colonize a star that was claimed mid-flight, redirect or return home
         if (CurrentOrder == FleetOrderType.Colonize && DestinationStar.OwningEmpire != null)
         {
             GD.Print(
@@ -256,10 +260,13 @@ public partial class Fleet : Node2D, IChronicleEntity
             );
             if (!TryRedirectColonization())
             {
-                DestinationStar = null;
-                CurrentOrder = FleetOrderType.None;
-                State = FleetState.InOrbit;
-                return;
+                if (!ReturnHome())
+                {
+                    DestinationStar = null;
+                    CurrentOrder = FleetOrderType.None;
+                    State = FleetState.InOrbit;
+                    return;
+                }
             }
         }
 
@@ -337,7 +344,10 @@ public partial class Fleet : Node2D, IChronicleEntity
                 "{fleet} aborted colonization of {star} (already claimed).",
                 OrbitingStar
             );
-            TryRedirectColonization();
+            if (!TryRedirectColonization())
+            {
+                ReturnHome();
+            }
             return false;
         }
 
@@ -384,7 +394,7 @@ public partial class Fleet : Node2D, IChronicleEntity
     }
 
     /// <summary>
-    /// Attempts to redirect a colony fleet to the nearest remaining unowned star.
+    /// Attempts to redirect a colony fleet to the highest-priority remaining unowned star.
     /// Returns true if a new colonization target was found and ordered.
     /// </summary>
     public bool TryRedirectColonization()
@@ -393,12 +403,44 @@ public partial class Fleet : Node2D, IChronicleEntity
             return false;
 
         Vector2 currentPos = WorldPosition ?? Position;
-        Star nextTarget = StarManager.Instance.GetNearestUnownedStar(currentPos, OwningEmpire);
+        Star nextTarget = StarManager.Instance.GetBestUnownedStarToColonize(currentPos, OwningEmpire);
         if (nextTarget == null)
             return false;
 
         GD.Print($"Fleet '{FleetName}' redirecting colonization order to {nextTarget.StarName}.");
         OrderColonize(nextTarget);
+        return true;
+    }
+
+    /// <summary>
+    /// Orders the fleet to return to its owning empire's home star (or nearest owned star).
+    /// Returns true if a valid homeward destination was found and ordered.
+    /// </summary>
+    public bool ReturnHome()
+    {
+        Star homeTarget = OwningEmpire?.HomeStar;
+        if (homeTarget == null || !GodotObject.IsInstanceValid(homeTarget))
+        {
+            if (OwningEmpire?.OwnedStars != null && OwningEmpire.OwnedStars.Count > 0)
+            {
+                homeTarget = OwningEmpire.OwnedStars[0];
+            }
+        }
+
+        if (homeTarget == null || !GodotObject.IsInstanceValid(homeTarget))
+            return false;
+
+        if (OrbitingStar == homeTarget)
+            return false;
+
+        GD.Print($"Fleet '{FleetName}' returning home to {homeTarget.StarName}.");
+        RecordFleetAndShipsEvent(
+            EventCategory.Military,
+            "Returning Home",
+            "{fleet} found no valid targets and is returning to {star}.",
+            homeTarget
+        );
+        OrderMoveTo(homeTarget);
         return true;
     }
 

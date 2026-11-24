@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ShipNameCollectionResource" format=3 uid="uid://b2yhfmlbgtvo5"]
+
+[ext_resource type="Script" uid="uid://ddcxsy50rek0v" path="res://Data/ShipNameCollectionResource.cs" id="1_we0pv"]
+
+[resource]
+script = ExtResource("1_we0pv")
+CollectionName = "Nautical"
+SmallShipNames = Array[String](["Piranha", "Barracuda", "Marlin", "Moray", "Viperfish", "Pike", "Gar", "Needlefish"])
+MediumShipNames = Array[String](["Swordfish", "Stingray", "Corsair", "Frigate", "Trident", "Manta", "Cutlass", "Riptide"])
+LargeShipNames = Array[String](["Orca", "Kraken", "Leviathan", "Galleon", "Sovereign", "Dreadnought", "Maelstrom", "Tempest"])
+NonCombatSmallShipNames = Array[String](["Minnow", "Tuna", "Mackerel", "Perch", "Guppy", "Herring", "Sardine", "Anchovy"])
+NonCombatMediumShipNames = Array[String](["Dolphin", "Pelican", "Albatross", "SeaGull", "Otter", "Seal", "Caravel", "Schooner"])
+NonCombatLargeShipNames = Array[String](["Beluga", "Manatee", "Humpback", "Narwhal", "SpermWhale", "Voyager", "Nautilus", "Argonaut"])

@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ShipNameCollectionResource" format=3 uid="uid://dihcw4q7hgyq1"]
+
+[ext_resource type="Script" uid="uid://ddcxsy50rek0v" path="res://Data/ShipNameCollectionResource.cs" id="1_flh57"]
+
+[resource]
+script = ExtResource("1_flh57")
+CollectionName = "Imperial Virtues"
+SmallShipNames = Array[String](["Dagger", "Talon", "Viper", "Arrow", "Fang", "Lance", "Rapier", "Saber"])
+MediumShipNames = Array[String](["Vanguard", "Sentinel", "Bastion", "Crusader", "Defiant", "Paladin", "Templar", "Guardian"])
+LargeShipNames = Array[String](["Sovereign", "Imperator", "Conqueror", "Vengeance", "Colossus", "Dominator", "Triumph", "Invincible"])
+NonCombatSmallShipNames = Array[String](["Courier", "Herald", "Beacon", "Scout", "Messenger", "Envoy", "Runner", "Relay"])
+NonCombatMediumShipNames = Array[String](["Pioneer", "Pathfinder", "Voyager", "Venture", "Endeavor", "Discovery", "Surveyor", "Explorer"])
+NonCombatLargeShipNames = Array[String](["Sanctuary", "Ark", "Concord", "Haven", "Providence", "Prosperity", "Harmony", "Covenant"])

@@ -94,6 +94,19 @@ public partial class StarManager : Node
         }
     }
 
+    public static void SetInstanceForTesting(StarManager instance)
+    {
+        _instance = instance;
+    }
+
+    public void RegisterStar(Star star)
+    {
+        if (star != null && !_spawnedStars.Contains(star))
+        {
+            _spawnedStars.Add(star);
+        }
+    }
+
     /// <summary>
     /// Gets a read-only list of the spawned stars.
     /// </summary>

@@ -32,6 +32,14 @@ public partial class Empire : Node, IChronicleEntity
     }
     public string EmpireName { get; set; }
     public Color EmpireColor { get; set; }
+    public ShipNameCollectionResource ShipNameCollection { get; set; }
+
+    private readonly Dictionary<string, string> _designClassNames =
+        new Dictionary<string, string>();
+    private readonly Dictionary<string, int> _shipNameCounts = new Dictionary<string, int>();
+    private readonly Dictionary<(ShipSizeCategory, ShipRoleCategory), int> _sizeRoleNameCursors =
+        new Dictionary<(ShipSizeCategory, ShipRoleCategory), int>();
+    private int _fleetCounter = 0;
 
     private readonly List<Star> _ownedStars = new List<Star>();
     public IReadOnlyList<Star> OwnedStars => _ownedStars.AsReadOnly();
@@ -496,6 +504,76 @@ public partial class Empire : Node, IChronicleEntity
         );
     }
 
+    /// <summary>
+    /// Assigns a unique ship name from the empire's ShipNameCollection and establishes
+    /// the design's class name from the first commissioned ship of that design (lead-ship tradition).
+    /// </summary>
+    public void AssignShipAndClassName(Ship ship)
+    {
+        if (ship?.Design == null)
+            return;
+
+        ShipNameCollectionResource collection = ShipNameCollection;
+        if (collection == null && FleetManager.HasInstance && FleetManager.Instance.AvailableShipNameCollections.Count > 0)
+        {
+            collection = FleetManager.Instance.AvailableShipNameCollections[0];
+            ShipNameCollection = collection;
+        }
+
+        string baseName = null;
+        if (collection != null)
+        {
+            var pool = collection.GetNamesFor(ship.Design.SizeCategory, ship.Design.RoleCategory);
+            if (pool != null && pool.Count > 0)
+            {
+                var key = (ship.Design.SizeCategory, ship.Design.RoleCategory);
+                _sizeRoleNameCursors.TryGetValue(key, out int cursor);
+                baseName = pool[cursor % pool.Count];
+                _sizeRoleNameCursors[key] = cursor + 1;
+            }
+        }
+
+        if (string.IsNullOrEmpty(baseName))
+        {
+            baseName = ship.Design.DesignName ?? "Ship";
+        }
+
+        _shipNameCounts.TryGetValue(baseName, out int usedCount);
+        usedCount++;
+        _shipNameCounts[baseName] = usedCount;
+        ship.ShipName = usedCount == 1 ? baseName : $"{baseName} {usedCount}";
+
+        string designKey = !string.IsNullOrEmpty(ship.Design.DesignId)
+            ? ship.Design.DesignId
+            : ship.Design.DesignName;
+
+        if (!_designClassNames.TryGetValue(designKey, out string className))
+        {
+            className = collection != null ? $"{baseName}-Class" : (ship.Design.DesignName ?? $"{baseName}-Class");
+            _designClassNames[designKey] = className;
+        }
+        ship.ClassName = className;
+    }
+
+    /// <summary>
+    /// Returns the next sequential ordinal fleet name for this empire (e.g. "1st Fleet", "2nd Fleet").
+    /// </summary>
+    public string GetNextFleetName()
+    {
+        _fleetCounter++;
+        int mod100 = _fleetCounter % 100;
+        string suffix = (mod100 >= 11 && mod100 <= 13)
+            ? "th"
+            : (_fleetCounter % 10) switch
+            {
+                1 => "st",
+                2 => "nd",
+                3 => "rd",
+                _ => "th",
+            };
+        return $"{_fleetCounter}{suffix} Fleet";
+    }
+
     private Fleet SpawnCompletedShip(ShipDesignResource design, Star star)
     {
         var ship = new Ship(design)
@@ -503,6 +581,8 @@ public partial class Empire : Node, IChronicleEntity
             CommissionedTick = TickManager.HasInstance ? TickManager.Instance.tickCount : 0,
             BuiltAtStarName = star?.StarName ?? "Unknown",
         };
+        AssignShipAndClassName(ship);
+
         Fleet fleet;
         if (FleetManager.HasInstance)
         {
@@ -517,7 +597,7 @@ public partial class Empire : Node, IChronicleEntity
         RegisterFleet(fleet);
 
         GD.Print(
-            $"Empire {EmpireName} completed ship {design.DesignName} at {star.StarName}."
+            $"Empire {EmpireName} completed ship {ship.ShipName} ({ship.ClassName}) at {star.StarName}."
         );
 
         ChronicleEvent.Create(EventCategory.Military, "Ship Commissioned")
@@ -525,8 +605,10 @@ public partial class Empire : Node, IChronicleEntity
             .Involving(star)
             .Involving(fleet)
             .Involving(ship)
-            .WithTemplate("{empire} commissioned {ship} into {fleet} at {star}.")
+            .WithTemplate("{empire} commissioned {ship} ({class}) into {fleet} at {star}.")
+            .WithArg("class", ship.ClassName)
             .WithMetadata("ship_id", ship.ShipId)
+            .WithMetadata("ship_class", ship.ClassName)
             .WithMetadata("design_id", design.DesignId)
             .Record();
 

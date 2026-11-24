@@ -227,6 +227,11 @@ public partial class EmpireManager : Node
 
                 homeStar.SetSystemSize(Star.HomeSystemSize);
                 empireInstance.EmpireColor = new Color(_rng.Randf(), _rng.Randf(), _rng.Randf());
+                if (FleetManager.HasInstance && FleetManager.Instance.AvailableShipNameCollections.Count > 0)
+                {
+                    var collections = FleetManager.Instance.AvailableShipNameCollections;
+                    empireInstance.ShipNameCollection = collections[i % collections.Count];
+                }
                 homeStar.StarNameColor = empireInstance.EmpireColor;
                 homeStar.StarPopulation = 5000; // Initial population for a home star
 

@@ -30,38 +30,33 @@ theme_override_colors/font_color = Color(0, 0.8980392, 1, 1)
 theme_override_font_sizes/font_size = 12
 text = "SPEED: 1x"
 
-[node name="ControlsHBox" type="HBoxContainer" parent="VBoxContainer" unique_id=1373163456]
+[node name="ControlsHBox" type="HBoxContainer" parent="VBoxContainer" unique_id=1295041975]
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="PauseButton" type="Button" parent="VBoxContainer/ControlsHBox" unique_id=1277388729]
+[node name="SlowDownButton" type="Button" parent="VBoxContainer/ControlsHBox" unique_id=382431486]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(66, 28)
+custom_minimum_size = Vector2(44, 28)
 layout_mode = 2
+tooltip_text = "Halve simulation speed (min 0.25x)"
 theme_override_colors/font_color = Color(0, 0.8980392, 1, 1)
-theme_override_font_sizes/font_size = 11
-text = "PAUSE"
+theme_override_font_sizes/font_size = 12
+text = "<<"
 
-[node name="SlowButton" type="Button" parent="VBoxContainer/ControlsHBox" unique_id=525820359]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(52, 28)
-layout_mode = 2
-theme_override_colors/font_color = Color(0.56078434, 0.6392157, 0.7490196, 1)
-theme_override_font_sizes/font_size = 11
-text = "0.25x"
-
-[node name="NormalButton" type="Button" parent="VBoxContainer/ControlsHBox" unique_id=895730311]
+[node name="PauseButton" type="Button" parent="VBoxContainer/ControlsHBox" unique_id=619870500]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(44, 28)
 layout_mode = 2
-theme_override_colors/font_color = Color(1, 0.84313726, 0, 1)
-theme_override_font_sizes/font_size = 11
-text = "1x"
+tooltip_text = "Pause / Resume simulation"
+theme_override_colors/font_color = Color(0, 0.8980392, 1, 1)
+theme_override_font_sizes/font_size = 12
+text = "||"
 
-[node name="FastButton" type="Button" parent="VBoxContainer/ControlsHBox" unique_id=8074475]
+[node name="SpeedUpButton" type="Button" parent="VBoxContainer/ControlsHBox" unique_id=2011182014]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(44, 28)
 layout_mode = 2
-theme_override_colors/font_color = Color(0.56078434, 0.6392157, 0.7490196, 1)
-theme_override_font_sizes/font_size = 11
-text = "4x"
+tooltip_text = "Double simulation speed (max 4x)"
+theme_override_colors/font_color = Color(0, 0.8980392, 1, 1)
+theme_override_font_sizes/font_size = 12
+text = ">>"

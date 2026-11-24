@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ShipNameCollectionResource" format=3 uid="uid://ckeiktlas7syj"]
+
+[ext_resource type="Script" uid="uid://ddcxsy50rek0v" path="res://Data/ShipNameCollectionResource.cs" id="1_riu4c"]
+
+[resource]
+script = ExtResource("1_riu4c")
+CollectionName = "Mythology"
+SmallShipNames = Array[String](["Imp", "Harpy", "Griffin", "Satyr", "Fury", "Manticore", "Basilisk", "Sphinx"])
+MediumShipNames = Array[String](["Valkyrie", "Cerberus", "Minotaur", "Chimera", "Cyclops", "Centaur", "Hydra", "Gorgon"])
+LargeShipNames = Array[String](["Titan", "Kronos", "Ares", "Zeus", "Odin", "Poseidon", "Hades", "Hyperion"])
+NonCombatSmallShipNames = Array[String](["Sprite", "Sylph", "Dryad", "Nymph", "Naiad", "Pixie", "Faun", "Zephyr"])
+NonCombatMediumShipNames = Array[String](["Pegasus", "Phoenix", "Hermes", "Iris", "Muse", "Oracle", "Argus", "Calypso"])
+NonCombatLargeShipNames = Array[String](["Atlas", "Prometheus", "Hestia", "Demeter", "Athena", "Apollo", "Gaia", "Rhea"])
