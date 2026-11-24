@@ -40,7 +40,7 @@ public class ColonizeAction : GoapAction
         Vector2 origin = fleet.WorldPosition ?? fleet.Position;
 
         Star targetStar = StarManager.HasInstance
-            ? StarManager.Instance.GetNearestUnownedStar(origin, empire)
+            ? StarManager.Instance.GetBestUnownedStarToColonize(origin, empire)
             : null;
 
         if (targetStar == null)

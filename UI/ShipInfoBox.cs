@@ -100,6 +100,9 @@ public partial class ShipInfoBox : Control
 
     private void OnTickUpdate(int tick)
     {
+        if (!GodotObject.IsInstanceValid(this) || IsQueuedForDeletion())
+            return;
+
         if (_currentShip != null)
         {
             RefreshDisplay();
@@ -183,7 +186,7 @@ public partial class ShipInfoBox : Control
             string builtAt = string.IsNullOrEmpty(_currentShip.BuiltAtStarName)
                 ? "Unknown"
                 : _currentShip.BuiltAtStarName;
-            _originLabel.Text = $"COMMISSIONED: Day {_currentShip.CommissionedTick} at {builtAt}";
+            _originLabel.Text = $"COMMISSIONED: {TickManager.FormatDate(_currentShip.CommissionedTick)} at {builtAt}";
         }
 
         if (_fleetLabel != null)
@@ -201,7 +204,7 @@ public partial class ShipInfoBox : Control
         if (_statsLabel != null)
         {
             _statsLabel.Text =
-                $"HP: {_currentShip.CurrentHitPoints}/{_currentShip.MaxHitPoints} | SPD: {_currentShip.Speed:F0} u/t\n"
+                $"HP: {_currentShip.CurrentHitPoints}/{_currentShip.MaxHitPoints} | SPD: {_currentShip.Speed:F0} u/mo\n"
                 + $"ATK: {_currentShip.AttackDamage} | DEF: {_currentShip.DefenseRating} | CARGO: {_currentShip.CargoCapacity} | SENSORS: {_currentShip.SensorRange:F0}";
         }
 
@@ -258,8 +261,9 @@ public partial class ShipInfoBox : Control
         {
             var label = new Label
             {
-                Text = $"[Day {ev.Tick}] {ev.Title}: {ev.RawText}",
+                Text = $"[{TickManager.FormatShortDate(ev.Tick)}] {ev.Title}: {ev.RawText}",
                 AutowrapMode = TextServer.AutowrapMode.WordSmart,
+                CustomMinimumSize = new Vector2(10, 0),
                 SizeFlagsHorizontal = SizeFlags.ExpandFill,
             };
             label.AddThemeFontSizeOverride("font_size", 11);

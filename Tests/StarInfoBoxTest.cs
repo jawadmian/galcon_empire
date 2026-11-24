@@ -56,6 +56,10 @@ public partial class StarInfoBoxTest
 
         AssertThat(_infoBox.CurrentStar).IsEqual(_star);
 
+        var entityTypeLabel = _infoBox.GetNodeOrNull<Label>("%EntityTypeLabel");
+        AssertThat(entityTypeLabel).IsNotNull();
+        AssertThat(entityTypeLabel.Text).IsEqual("STAR SYSTEM");
+
         var nameLabel = _infoBox.GetNodeOrNull<Label>("%NameLabel");
         AssertThat(nameLabel).IsNotNull();
         AssertThat(nameLabel.Text).IsEqual("ALPHA CENTAURI");
@@ -90,6 +94,10 @@ public partial class StarInfoBoxTest
         var foodLabel = _infoBox.GetNodeOrNull<Label>("%FoodValueLabel");
         AssertThat(foodLabel).IsNotNull();
         AssertThat(foodLabel.Text).IsEqual("+25");
+
+        var improvementsTitle = _infoBox.GetNodeOrNull<Label>("%ImprovementsTitle");
+        AssertThat(improvementsTitle).IsNotNull();
+        AssertThat(improvementsTitle.Text).IsEqual($"FACILITIES (1 / {_star.MaxImprovements})");
 
         var improvementsList = _infoBox.GetNodeOrNull<VBoxContainer>("%ImprovementsList");
         AssertThat(improvementsList).IsNotNull();

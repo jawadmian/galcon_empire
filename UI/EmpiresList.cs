@@ -56,12 +56,20 @@ public partial class EmpiresList : Control
         }
 
         // Connect to the TickManager's signal
-        if (TickManager.Instance != null)
+        if (TickManager.HasInstance)
         {
             TickManager.Instance.TickUpdateSignal += OnTickUpdate;
+            if (_dayLabel != null)
+            {
+                _dayLabel.Text = TickManager.FormatDate(TickManager.Instance.tickCount);
+            }
         }
         else
         {
+            if (_dayLabel != null)
+            {
+                _dayLabel.Text = TickManager.FormatDate(0);
+            }
             GD.PushWarning("EmpiresList: TickManager.Instance is null. Cannot connect to TickUpdateSignal.");
         }
     }
@@ -153,9 +161,12 @@ public partial class EmpiresList : Control
     /// <param name="tickCount">The current tick count from TickManager.</param>
     private void OnTickUpdate(int tickCount)
     {
-        if (_dayLabel != null)
+        if (!GodotObject.IsInstanceValid(this) || IsQueuedForDeletion())
+            return;
+
+        if (_dayLabel != null && GodotObject.IsInstanceValid(_dayLabel))
         {
-            _dayLabel.Text = $"Day: {tickCount}";
+            _dayLabel.Text = TickManager.FormatDate(tickCount);
         }
 
         // Update star count badges on each empire button

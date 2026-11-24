@@ -30,16 +30,16 @@ public partial class StarManager : Node
     public int NumberOfStarsToSpawn { get; set; } = 10;
 
     [Export]
-    public Vector2 SpawnAreaMin { get; set; } = new Vector2(0, 0);
+    public Vector2 SpawnAreaMin { get; set; } = new Vector2(-400, -300);
 
     [Export]
-    public Vector2 SpawnAreaMax { get; set; } = new Vector2(1000, 1000);
+    public Vector2 SpawnAreaMax { get; set; } = new Vector2(2800, 1600);
 
     [Export]
     public StringArrayResource StarNamesResource { get; set; }
 
-    [Export(PropertyHint.Range, "0,10000,1")]
-    public float MinStarDistanceSquared { get; set; } = 1024;
+    [Export(PropertyHint.Range, "0,1000000,1")]
+    public float MinStarDistanceSquared { get; set; } = 90000.0f;
 
     [Export(PropertyHint.Range, "1,1000,1")]
     public int MaxAttemptsPerPoint { get; set; } = 50;
@@ -149,6 +149,54 @@ public partial class StarManager : Node
         return nearest;
     }
 
+    /// <summary>
+    /// Selects the highest-priority unowned star to colonize by balancing system size
+    /// (building slots &amp; population cap) against travel distance from origin.
+    /// </summary>
+    public Star GetBestUnownedStarToColonize(Vector2 origin, Empire excludeTargetedByEmpire = null)
+    {
+        Star best = null;
+        float bestScore = float.MinValue;
+
+        foreach (Star star in _spawnedStars)
+        {
+            if (star == null || !GodotObject.IsInstanceValid(star) || star.OwningEmpire != null)
+                continue;
+
+            if (
+                excludeTargetedByEmpire != null
+                && FleetManager.HasInstance
+                && FleetManager.Instance.HasFleetTargetingStar(
+                    excludeTargetedByEmpire,
+                    star,
+                    FleetOrderType.Colonize
+                )
+            )
+            {
+                continue;
+            }
+
+            Vector2 starPos = star.WorldPosition ?? star.Position;
+            float distance = origin.DistanceTo(starPos);
+            float score = ScoreStarForColonization(star, distance);
+            if (score > bestScore)
+            {
+                bestScore = score;
+                best = star;
+            }
+        }
+
+        return best;
+    }
+
+    public static float ScoreStarForColonization(Star star, float distance)
+    {
+        if (star == null)
+            return float.MinValue;
+
+        return star.MaxImprovements / (1.0f + distance / 1000.0f);
+    }
+
     public void UpdateTick()
     {
         foreach (Star star in _spawnedStars)
@@ -186,6 +234,7 @@ public partial class StarManager : Node
             {
                 starInstance.Position = vector;
                 starInstance.SetStarType(PickRandomStarType());
+                starInstance.SetSystemSize((int)_rng.RandiRange(Star.MinSystemSize, Star.MaxSystemSize));
                 if (_availableStarNames != null && starNameIndex < _availableStarNames.Count)
                 {
                     starInstance.StarName = _availableStarNames[starNameIndex];

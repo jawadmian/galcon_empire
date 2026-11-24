@@ -45,6 +45,7 @@ public partial class SpaceBackgroundTest
         AssertThat(nebulaLayer).IsNotNull();
         AssertThat(nebulaLayer.ScrollScale.X).IsEqual(0.05f);
         AssertThat(nebulaLayer.RepeatSize).IsEqual(new Vector2(2048, 2048));
+        AssertThat(nebulaLayer.RepeatTimes).IsGreaterEqual(4);
 
         var nebulaSprite = nebulaLayer.GetNodeOrNull<Sprite2D>("NebulaSprite");
         AssertThat(nebulaSprite).IsNotNull();
@@ -56,6 +57,7 @@ public partial class SpaceBackgroundTest
         AssertThat(distantLayer).IsNotNull();
         AssertThat(distantLayer.ScrollScale.X).IsEqual(0.15f);
         AssertThat(distantLayer.RepeatSize).IsEqual(new Vector2(2048, 2048));
+        AssertThat(distantLayer.RepeatTimes).IsGreaterEqual(4);
 
         var distantSprite = distantLayer.GetNodeOrNull<Sprite2D>("DistantStarsSprite");
         AssertThat(distantSprite).IsNotNull();
@@ -67,6 +69,7 @@ public partial class SpaceBackgroundTest
         AssertThat(clustersLayer).IsNotNull();
         AssertThat(clustersLayer.ScrollScale.X).IsEqual(0.30f);
         AssertThat(clustersLayer.RepeatSize).IsEqual(new Vector2(2048, 2048));
+        AssertThat(clustersLayer.RepeatTimes).IsGreaterEqual(4);
 
         var clustersSprite = clustersLayer.GetNodeOrNull<Sprite2D>("ClustersSprite");
         AssertThat(clustersSprite).IsNotNull();

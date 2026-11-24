@@ -21,6 +21,7 @@ public partial class StarInfoBox : Control
     private Label _oreValueLabel;
     private Label _moneyValueLabel;
 
+    private Label _improvementsTitle;
     private VBoxContainer _improvementsList;
     private int _lastImprovementsCount = -1;
     private int _lastActiveConstructionCount = -1;
@@ -66,6 +67,8 @@ public partial class StarInfoBox : Control
         _oreValueLabel = GetNodeOrNull<Label>("%OreValueLabel");
         _moneyValueLabel = GetNodeOrNull<Label>("%MoneyValueLabel");
 
+        _improvementsTitle = GetNodeOrNull<Label>("%ImprovementsTitle")
+            ?? GetNodeOrNull<Label>("Background/ContentMargin/MainVBox/ImprovementsVBox/ImprovementsTitle");
         _improvementsList = GetNodeOrNull<VBoxContainer>("%ImprovementsList");
 
         if (_closeButton != null)
@@ -253,7 +256,7 @@ public partial class StarInfoBox : Control
 
         if (_popGrowthLabel != null)
         {
-            _popGrowthLabel.Text = $"Growth: +{growthPerTick:N0} / tick (+{growthPct:0.0}%)";
+            _popGrowthLabel.Text = $"Growth: +{growthPerTick:N0} / mo (+{growthPct:0.0}%)";
         }
 
         // Production
@@ -283,6 +286,14 @@ public partial class StarInfoBox : Control
         _lastImprovementsCount = _currentStar.Improvements?.Count ?? 0;
         var activeProjects = GetActiveProjectsForStar(_currentStar);
         _lastActiveConstructionCount = activeProjects.Count;
+
+        if (_improvementsTitle != null)
+        {
+            int maxSlots = _currentStar.MaxImprovements;
+            _improvementsTitle.Text = activeProjects.Count > 0
+                ? $"FACILITIES ({_lastImprovementsCount} + {activeProjects.Count} / {maxSlots})"
+                : $"FACILITIES ({_lastImprovementsCount} / {maxSlots})";
+        }
 
         // Remove old children
         foreach (Node child in _improvementsList.GetChildren())
@@ -339,7 +350,7 @@ public partial class StarInfoBox : Control
 
                 var itemHBox = new HBoxContainer();
 
-                string statusText = proj.IsUnderConstruction ? $"{proj.RemainingTicks}t left" : "Pending Funds";
+                string statusText = proj.IsUnderConstruction ? $"{proj.RemainingTicks}m left" : "Pending Funds";
                 var label = new Label
                 {
                     Text = $"🔨 {proj.Improvement.ImprovementName} [{statusText}]",

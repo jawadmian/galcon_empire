@@ -384,4 +384,48 @@ public partial class ShipSystemTests
 
         star.Free();
     }
+
+    [TestCase]
+    public void TestSystemSizeScalesSlotsMaxPopAndColonizationPriority()
+    {
+        var smallStar = new Star { StarName = "Dwarf", Position = new Vector2(200, 0) };
+        smallStar.SetSystemSize(3);
+        AssertThat(smallStar.SystemSize).IsEqual(3);
+        AssertThat(smallStar.MaxImprovements).IsEqual(3);
+        AssertThat(smallStar.MaxPopulation).IsEqual(60000);
+
+        var homeStar = new Star { StarName = "Home", Position = new Vector2(0, 0) };
+        homeStar.SetSystemSize(Star.HomeSystemSize);
+        AssertThat(homeStar.SystemSize).IsEqual(10);
+        AssertThat(homeStar.MaxImprovements).IsEqual(10);
+        AssertThat(homeStar.MaxPopulation).IsEqual(200000);
+
+        var giantStar = new Star { StarName = "Titan", Position = new Vector2(500, 0) };
+        giantStar.SetSystemSize(12);
+        AssertThat(giantStar.SystemSize).IsEqual(12);
+        AssertThat(giantStar.MaxImprovements).IsEqual(12);
+        AssertThat(giantStar.MaxPopulation).IsEqual(240000);
+
+        // Clamping outside 3..12
+        var clamped = new Star();
+        clamped.SetSystemSize(99);
+        AssertThat(clamped.MaxImprovements).IsEqual(12);
+        clamped.SetSystemSize(1);
+        AssertThat(clamped.MaxImprovements).IsEqual(3);
+
+        // Larger system at 500u outscores small system at 200u for colonization
+        float smallScore = StarManager.ScoreStarForColonization(smallStar, 200f);
+        float giantScore = StarManager.ScoreStarForColonization(giantStar, 500f);
+        AssertThat(giantScore).IsGreater(smallScore);
+
+        // StarManager default spacing is spread out (>= 300u apart)
+        var manager = new StarManager();
+        AssertThat(manager.MinStarDistanceSquared).IsGreaterEqual(90000.0f);
+
+        smallStar.Free();
+        homeStar.Free();
+        giantStar.Free();
+        clamped.Free();
+        manager.Free();
+    }
 }

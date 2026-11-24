@@ -15,12 +15,14 @@ script = ExtResource("1_3fr7q")
 [node name="SpaceBackground" parent="." unique_id=1973873317 instance=ExtResource("2_bg")]
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=871836324]
-position = Vector2(1153, 644)
+position = Vector2(1200, 650)
 zoom = Vector2(0.5, 0.5)
 script = ExtResource("2_wgp0f")
 
 [node name="StarManager" parent="." unique_id=996300895 instance=ExtResource("4_gjuov")]
-MinStarDistanceSquared = 2072.0
+SpawnAreaMin = Vector2(-400, -300)
+SpawnAreaMax = Vector2(2800, 1600)
+MinStarDistanceSquared = 90000.0
 
 [node name="EmpireManager" parent="." unique_id=1515637868 instance=ExtResource("3_vy2bj")]
 
@@ -32,5 +34,4 @@ MinStarDistanceSquared = 2072.0
 offset_left = 952.0
 
 [node name="DebugUI" parent="CanvasLayer" unique_id=555397027 instance=ExtResource("6_o1ifh")]
-offset_top = 535.0
-offset_right = -1022.0
+mouse_filter = 2

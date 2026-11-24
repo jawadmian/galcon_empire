@@ -283,17 +283,17 @@ public partial class EmpireInfoBox : Control
 
         if (_foodValueLabel != null)
         {
-            _foodValueLabel.Text = $"{foodStockpile:N0} (+{foodProd:N0}/t)";
+            _foodValueLabel.Text = $"{foodStockpile:N0} (+{foodProd:N0}/mo)";
         }
 
         if (_oreValueLabel != null)
         {
-            _oreValueLabel.Text = $"{oreStockpile:N0} (+{oreProd:N0}/t)";
+            _oreValueLabel.Text = $"{oreStockpile:N0} (+{oreProd:N0}/mo)";
         }
 
         if (_creditsValueLabel != null)
         {
-            _creditsValueLabel.Text = $"{moneyStockpile:N0} (+{moneyProd:N0}/t)";
+            _creditsValueLabel.Text = $"{moneyStockpile:N0} (+{moneyProd:N0}/mo)";
         }
     }
 
@@ -386,7 +386,7 @@ public partial class EmpireInfoBox : Control
 
             var itemHBox = new HBoxContainer();
 
-            string statusText = proj.IsUnderConstruction ? $"{proj.RemainingTicks}t left" : "Pending Funds";
+            string statusText = proj.IsUnderConstruction ? $"{proj.RemainingTicks}m left" : "Pending Funds";
             string targetName = proj.TargetStar != null ? $"@{proj.TargetStar.StarName}" : "";
 
             var projBtn = new Button

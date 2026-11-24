@@ -139,16 +139,138 @@ public partial class FleetAndShipInfoBoxTest
 
         box.DisplayFleet(fleet);
 
+        var entityTypeLabel = box.GetNodeOrNull<Label>("%EntityTypeLabel");
+        AssertThat(entityTypeLabel).IsNotNull();
+        AssertThat(entityTypeLabel.Text).IsEqual("FLEET");
+
+        var closeBtn = box.GetNodeOrNull<Button>("%CloseButton");
+        AssertThat(closeBtn).IsNotNull();
+        AssertThat(closeBtn.OffsetLeft).IsEqual(-36.0f);
+        AssertThat(closeBtn.OffsetTop).IsEqual(10.0f);
+        AssertThat(closeBtn.OffsetRight).IsEqual(-12.0f);
+        AssertThat(closeBtn.OffsetBottom).IsEqual(34.0f);
+
+        var chronicleScroll = box.GetNodeOrNull<ScrollContainer>("Background/ContentMargin/MainVBox/ChronicleScroll");
+        AssertThat(chronicleScroll).IsNotNull();
+        AssertThat(chronicleScroll.HorizontalScrollMode).IsEqual(ScrollContainer.ScrollMode.Disabled);
+
         var nameLabel = box.GetNodeOrNull<Label>("%NameLabel");
+        var empireLabel = box.GetNodeOrNull<Label>("%EmpireLabel");
         var statusLabel = box.GetNodeOrNull<Label>("%StatusLabel");
+        var speedLabel = box.GetNodeOrNull<Label>("%SpeedLabel");
         var shipsList = box.GetNodeOrNull<VBoxContainer>("%ShipsList");
         var chronicleList = box.GetNodeOrNull<VBoxContainer>("%ChronicleList");
+
+        AssertThat(nameLabel.AutowrapMode).IsEqual(TextServer.AutowrapMode.WordSmart);
+        AssertThat(empireLabel.AutowrapMode).IsEqual(TextServer.AutowrapMode.WordSmart);
+        AssertThat(statusLabel.AutowrapMode).IsEqual(TextServer.AutowrapMode.WordSmart);
+        AssertThat(speedLabel.AutowrapMode).IsEqual(TextServer.AutowrapMode.WordSmart);
 
         AssertThat(nameLabel.Text).Contains("ARK-CLASS COLONY SHIP");
         AssertThat(statusLabel.Text).Contains("Altair");
         AssertThat(shipsList.GetChildCount()).IsEqual(1);
-        AssertThat(shipsList.GetChild(0) is Button).IsTrue();
+        var shipButton = shipsList.GetChild(0) as Button;
+        AssertThat(shipButton).IsNotNull();
+        AssertThat(shipButton.Text.Contains("#")).IsFalse();
+        AssertThat(shipButton.ClipText).IsTrue();
         AssertThat(chronicleList.GetChildCount()).IsEqual(1);
+    }
+
+    [TestCase]
+    public void TestFleetInfoBoxLongTextDoesNotOverflowPanelWidth()
+    {
+        var scene = GD.Load<PackedScene>("res://UI/fleet_info_box.tscn");
+        var box = scene.Instantiate<FleetInfoBox>();
+        _createdNodes.Add(box);
+
+        var viewport = new SubViewport { Size = new Vector2I(600, 600) };
+        _createdNodes.Add(viewport);
+        viewport.AddChild(box);
+        box._Ready();
+
+        var empire = new Empire { EmpireName = "The Interstellar Sovereignty of Extremely Verbose Names" };
+        var origin = new Star { StarName = "Vega", Position = new Vector2(0, 0) };
+        var target = new Star { StarName = "Alpha Centauri Megastructure Nexus Prime Sector IV", Position = new Vector2(200, 0) };
+        _createdNodes.Add(empire);
+        _createdNodes.Add(origin);
+        _createdNodes.Add(target);
+
+        var ship = new Ship(CreateColonyDesign()) { CommissionedTick = 5, BuiltAtStarName = "Vega" };
+        var fleet = new Fleet();
+        _createdNodes.Add(fleet);
+        fleet.Initialize(empire, origin, ship);
+        fleet.FleetName = "First Expeditionary Colonization Armada of the Outer Rim";
+        fleet.OrderColonize(target);
+
+        box.DisplayFleet(fleet);
+
+        var mainVBox = box.GetNodeOrNull<VBoxContainer>("Background/ContentMargin/MainVBox");
+        AssertThat(mainVBox).IsNotNull();
+        AssertThat(mainVBox.GetCombinedMinimumSize().X).IsLessEqual(324.0f);
+    }
+
+    [TestCase]
+    public void TestDebugUiSpeedControlsAndPause()
+    {
+        TickManager tm;
+        if (TickManager.HasInstance)
+        {
+            tm = TickManager.Instance;
+            tm.SetSpeedMultiplier(1.0f);
+        }
+        else
+        {
+            tm = new TickManager();
+            _createdNodes.Add(tm);
+            tm._EnterTree();
+        }
+
+        AssertThat(tm.TickUpdateInterval).IsEqual(1.0f);
+        AssertThat(tm.IsPaused).IsFalse();
+        AssertThat(tm.SpeedMultiplier).IsEqual(1.0f);
+
+        var scene = GD.Load<PackedScene>("res://Data/Improvements/debug_ui.tscn");
+        AssertThat(scene).IsNotNull();
+        var debugUi = scene.Instantiate<DebugUi>();
+        _createdNodes.Add(debugUi);
+        debugUi._Ready();
+
+        var statusLabel = debugUi.GetNodeOrNull<Label>("%SpeedStatusLabel");
+        var pauseBtn = debugUi.GetNodeOrNull<Button>("%PauseButton");
+        var slowBtn = debugUi.GetNodeOrNull<Button>("%SlowButton");
+        var normalBtn = debugUi.GetNodeOrNull<Button>("%NormalButton");
+        var fastBtn = debugUi.GetNodeOrNull<Button>("%FastButton");
+
+        AssertThat(statusLabel).IsNotNull();
+        AssertThat(pauseBtn).IsNotNull();
+        AssertThat(slowBtn).IsNotNull();
+        AssertThat(normalBtn).IsNotNull();
+        AssertThat(fastBtn).IsNotNull();
+        AssertThat(statusLabel.Text).IsEqual("SPEED: 1x");
+
+        fastBtn.EmitSignal(Button.SignalName.Pressed);
+        AssertThat(tm.TickUpdateInterval).IsEqual(0.25f);
+        AssertThat(tm.SpeedMultiplier).IsEqual(4.0f);
+        AssertThat(statusLabel.Text).IsEqual("SPEED: 4x");
+
+        slowBtn.EmitSignal(Button.SignalName.Pressed);
+        AssertThat(tm.TickUpdateInterval).IsEqual(4.0f);
+        AssertThat(tm.SpeedMultiplier).IsEqual(0.25f);
+        AssertThat(statusLabel.Text).IsEqual("SPEED: 0.25x");
+
+        pauseBtn.EmitSignal(Button.SignalName.Pressed);
+        AssertThat(tm.IsPaused).IsTrue();
+        AssertThat(pauseBtn.Text).IsEqual("RESUME");
+        AssertThat(statusLabel.Text).Contains("PAUSED");
+
+        int ticksBefore = tm.tickCount;
+        tm._Process(5.0);
+        AssertThat(tm.tickCount).IsEqual(ticksBefore);
+
+        normalBtn.EmitSignal(Button.SignalName.Pressed);
+        AssertThat(tm.IsPaused).IsFalse();
+        AssertThat(tm.TickUpdateInterval).IsEqual(1.0f);
+        AssertThat(statusLabel.Text).IsEqual("SPEED: 1x");
     }
 
     [TestCase]
@@ -160,6 +282,21 @@ public partial class FleetAndShipInfoBoxTest
         var box = scene.Instantiate<ShipInfoBox>();
         _createdNodes.Add(box);
         box._Ready();
+
+        var entityTypeLabel = box.GetNodeOrNull<Label>("%EntityTypeLabel");
+        AssertThat(entityTypeLabel).IsNotNull();
+        AssertThat(entityTypeLabel.Text).IsEqual("SHIP");
+
+        var closeBtn = box.GetNodeOrNull<Button>("%CloseButton");
+        AssertThat(closeBtn).IsNotNull();
+        AssertThat(closeBtn.OffsetLeft).IsEqual(-36.0f);
+        AssertThat(closeBtn.OffsetTop).IsEqual(10.0f);
+        AssertThat(closeBtn.OffsetRight).IsEqual(-12.0f);
+        AssertThat(closeBtn.OffsetBottom).IsEqual(34.0f);
+
+        var chronicleScroll = box.GetNodeOrNull<ScrollContainer>("Background/ContentMargin/MainVBox/ChronicleScroll");
+        AssertThat(chronicleScroll).IsNotNull();
+        AssertThat(chronicleScroll.HorizontalScrollMode).IsEqual(ScrollContainer.ScrollMode.Disabled);
 
         var empire = new Empire { EmpireName = "Navigators" };
         var origin = new Star { StarName = "Deneb", Position = new Vector2(0, 0) };
@@ -183,11 +320,35 @@ public partial class FleetAndShipInfoBoxTest
         var chronicleList = box.GetNodeOrNull<VBoxContainer>("%ChronicleList");
 
         AssertThat(nameLabel.Text).Contains("ARK-CLASS COLONY SHIP");
-        AssertThat(originLabel.Text).Contains("Day 12");
+        AssertThat(nameLabel.Text.Contains("#")).IsFalse();
+        AssertThat(ship.ChronicleName.Contains("#")).IsFalse();
+        AssertThat(originLabel.Text).Contains("Year 2, Month 1");
         AssertThat(originLabel.Text).Contains("Deneb");
         AssertThat(statsLabel.Text).Contains("100/100");
         AssertThat(statsLabel.Text).Contains("40");
         AssertThat(abilitiesLabel.Text).Contains("Colonize");
         AssertThat(chronicleList.GetChildCount()).IsEqual(1);
+    }
+
+    [TestCase]
+    public void TestTickManagerYearMonthFormatting()
+    {
+        AssertThat(TickManager.GetYear(0)).IsEqual(1);
+        AssertThat(TickManager.GetMonth(0)).IsEqual(1);
+        AssertThat(TickManager.FormatDate(0)).IsEqual("Year 1, Month 1");
+        AssertThat(TickManager.FormatShortDate(0)).IsEqual("Y1 M1");
+
+        AssertThat(TickManager.GetYear(11)).IsEqual(1);
+        AssertThat(TickManager.GetMonth(11)).IsEqual(12);
+        AssertThat(TickManager.FormatDate(11)).IsEqual("Year 1, Month 12");
+        AssertThat(TickManager.FormatShortDate(11)).IsEqual("Y1 M12");
+
+        AssertThat(TickManager.GetYear(12)).IsEqual(2);
+        AssertThat(TickManager.GetMonth(12)).IsEqual(1);
+        AssertThat(TickManager.FormatDate(12)).IsEqual("Year 2, Month 1");
+        AssertThat(TickManager.FormatShortDate(12)).IsEqual("Y2 M1");
+
+        AssertThat(TickManager.FormatDate(25)).IsEqual("Year 3, Month 2");
+        AssertThat(TickManager.FormatShortDate(25)).IsEqual("Y3 M2");
     }
 }

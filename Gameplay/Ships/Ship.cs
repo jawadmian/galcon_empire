@@ -15,7 +15,7 @@ public class Ship : IChronicleEntity
 
     // IChronicleEntity implementation
     public string ChronicleId => $"ship:{ShipId}";
-    public string ChronicleName => $"{Design?.DesignName ?? "Ship"} #{ShipId}";
+    public string ChronicleName => Design?.DesignName ?? "Ship";
     public string ChronicleType => "ship";
     public Vector2? WorldPosition =>
         CurrentFleet != null && GodotObject.IsInstanceValid(CurrentFleet)

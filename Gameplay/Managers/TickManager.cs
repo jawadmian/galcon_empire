@@ -21,9 +21,58 @@ public partial class TickManager : Node
         private set => _instance = value;
     }
 
+    public const float DefaultTickInterval = 1.0f;
+
     public int tickCount = 0;
-    public float TickUpdateInterval { get; set; } = 10.0f; // Time in seconds between population updates
+    public float TickUpdateInterval { get; set; } = DefaultTickInterval; // 1 tick (1 month) per second at 1x speed
+    public bool IsPaused { get; set; } = false;
     private float _tickUpdateTimer = 0.0f;
+
+    public float SpeedMultiplier => TickUpdateInterval > 0f ? DefaultTickInterval / TickUpdateInterval : 0f;
+
+    public void SetPaused(bool paused)
+    {
+        IsPaused = paused;
+    }
+
+    public void TogglePause()
+    {
+        IsPaused = !IsPaused;
+    }
+
+    public void SetSpeedMultiplier(float multiplier)
+    {
+        if (multiplier <= 0f)
+        {
+            IsPaused = true;
+            return;
+        }
+
+        IsPaused = false;
+        TickUpdateInterval = DefaultTickInterval / multiplier;
+    }
+
+    /// <summary>
+    /// Converts a 0-based total-months tick counter into a 1-based calendar year.
+    /// </summary>
+    public static int GetYear(int totalMonths) => (totalMonths < 0 ? 0 : totalMonths / 12) + 1;
+
+    /// <summary>
+    /// Converts a 0-based total-months tick counter into a 1-based calendar month (1..12).
+    /// </summary>
+    public static int GetMonth(int totalMonths) => (totalMonths < 0 ? 0 : totalMonths % 12) + 1;
+
+    /// <summary>
+    /// Formats a tick count as "Year X, Month Y" (each tick represents 1 month).
+    /// </summary>
+    public static string FormatDate(int totalMonths) =>
+        $"Year {GetYear(totalMonths)}, Month {GetMonth(totalMonths)}";
+
+    /// <summary>
+    /// Formats a tick count as a compact "YX MY" date tag for Chronicle entries.
+    /// </summary>
+    public static string FormatShortDate(int totalMonths) =>
+        $"Y{GetYear(totalMonths)} M{GetMonth(totalMonths)}";
 
     [Signal]
     public delegate void TickUpdateSignalEventHandler(int value);
@@ -38,6 +87,11 @@ public partial class TickManager : Node
 
     public override void _Process(double delta)
     {
+        if (IsPaused)
+        {
+            return;
+        }
+
         float dt = (float)delta;
 
         // If the interval is not positive, population updates are effectively paused.
@@ -58,8 +112,11 @@ public partial class TickManager : Node
         {
             tickCount++;
 
-            // Update starmanager tick
-            StarManager.Instance.UpdateTick();
+            // Update starmanager tick if present in the scene tree
+            if (StarManager.HasInstance)
+            {
+                StarManager.Instance.UpdateTick();
+            }
 
             // Subtract the processed interval from the timer to carry over any remainder.
             _tickUpdateTimer -= TickUpdateInterval;

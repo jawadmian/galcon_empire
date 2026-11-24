@@ -1,8 +1,8 @@
-[gd_scene load_steps=2 format=3 uid="uid://k5loqd0xcpnr"]
+[gd_scene format=3 uid="uid://k5loqd0xcpnr"]
 
 [ext_resource type="Script" uid="uid://drbffqmko2uct" path="res://UI/DebugUi.cs" id="1_l1snj"]
 
-[node name="DebugUI" type="Control"]
+[node name="DebugUI" type="Control" unique_id=261742509]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -11,20 +11,57 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_l1snj")
 
-[node name="VBoxContainer" type="VBoxContainer" parent="."]
+[node name="VBoxContainer" type="VBoxContainer" parent="." unique_id=1051574289]
 layout_mode = 1
 anchors_preset = 2
 anchor_top = 1.0
 anchor_bottom = 1.0
-offset_top = -118.0
-offset_right = 116.0
+offset_left = 12.0
+offset_top = -72.0
+offset_right = 272.0
+offset_bottom = -12.0
 grow_vertical = 0
+theme_override_constants/separation = 6
 
-[node name="Label" type="Label" parent="VBoxContainer"]
+[node name="SpeedStatusLabel" type="Label" parent="VBoxContainer" unique_id=949207839]
+unique_name_in_owner = true
 layout_mode = 2
+theme_override_colors/font_color = Color(0, 0.8980392, 1, 1)
+theme_override_font_sizes/font_size = 12
+text = "SPEED: 1x"
 
-[node name="Slider" type="HSlider" parent="VBoxContainer"]
+[node name="ControlsHBox" type="HBoxContainer" parent="VBoxContainer" unique_id=1373163456]
 layout_mode = 2
-min_value = 1.0
-max_value = 20.0
-value = 10.0
+theme_override_constants/separation = 6
+
+[node name="PauseButton" type="Button" parent="VBoxContainer/ControlsHBox" unique_id=1277388729]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(66, 28)
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0.8980392, 1, 1)
+theme_override_font_sizes/font_size = 11
+text = "PAUSE"
+
+[node name="SlowButton" type="Button" parent="VBoxContainer/ControlsHBox" unique_id=525820359]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(52, 28)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.56078434, 0.6392157, 0.7490196, 1)
+theme_override_font_sizes/font_size = 11
+text = "0.25x"
+
+[node name="NormalButton" type="Button" parent="VBoxContainer/ControlsHBox" unique_id=895730311]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(44, 28)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.84313726, 0, 1)
+theme_override_font_sizes/font_size = 11
+text = "1x"
+
+[node name="FastButton" type="Button" parent="VBoxContainer/ControlsHBox" unique_id=8074475]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(44, 28)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.56078434, 0.6392157, 0.7490196, 1)
+theme_override_font_sizes/font_size = 11
+text = "4x"

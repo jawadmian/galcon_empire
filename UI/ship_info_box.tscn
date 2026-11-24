@@ -120,6 +120,7 @@ text = "SHIP CHRONICLE"
 custom_minimum_size = Vector2(0, 160)
 layout_mode = 2
 size_flags_vertical = 3
+horizontal_scroll_mode = 0
 
 [node name="ChronicleList" type="VBoxContainer" parent="Background/ContentMargin/MainVBox/ChronicleScroll" unique_id=1667572861]
 unique_name_in_owner = true
@@ -133,10 +134,24 @@ custom_minimum_size = Vector2(24, 24)
 layout_mode = 0
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -22.0
-offset_bottom = 31.0
+offset_left = -36.0
+offset_top = 10.0
+offset_right = -12.0
+offset_bottom = 34.0
 tooltip_text = "Close Ship Dossier"
+theme_override_font_sizes/font_size = 13
 theme_override_styles/normal = ExtResource("6_8i8kq")
 theme_override_styles/pressed = ExtResource("7_sch8d")
 theme_override_styles/hover = ExtResource("7_sch8d")
 text = "✕"
+
+[node name="EntityTypeLabel" type="Label" parent="." unique_id=1624790598]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 28.0
+offset_top = 14.0
+offset_right = 240.0
+offset_bottom = 32.0
+theme_override_colors/font_color = Color(1, 0.84313726, 0, 1)
+theme_override_font_sizes/font_size = 11
+text = "SHIP"

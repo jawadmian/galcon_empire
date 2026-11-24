@@ -44,6 +44,30 @@ public partial class Star : Node2D, IChronicleEntity
     [Export]
     public int MaxImprovements { get; set; } = 6;
 
+    // System size (3..12), directly determining building slots and maximum population capacity
+    [Export]
+    public int SystemSize { get; set; } = 6;
+
+    public const int MinSystemSize = 3;
+    public const int MaxSystemSize = 12;
+    public const int HomeSystemSize = 10;
+    public const int PopulationPerSystemSize = 20000;
+
+    /// <summary>
+    /// Sets the star's system size (clamped to 3..12) and scales both building slots
+    /// (MaxImprovements) and maximum sustainable population (MaxPopulation) accordingly.
+    /// </summary>
+    public void SetSystemSize(int size)
+    {
+        SystemSize = Math.Clamp(size, MinSystemSize, MaxSystemSize);
+        MaxImprovements = SystemSize;
+        MaxPopulation = SystemSize * PopulationPerSystemSize;
+        if (_population > MaxPopulation)
+        {
+            _population = MaxPopulation;
+        }
+    }
+
     // List of improvements on this star
     [Export]
     public Array<ImprovementResource> Improvements { get; set; } = new Array<ImprovementResource>();

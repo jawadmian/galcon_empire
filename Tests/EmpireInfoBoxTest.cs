@@ -139,20 +139,24 @@ public partial class EmpireInfoBoxTest
         AssertThat(popValueLabel).IsNotNull();
         AssertThat(popValueLabel.Text).Contains("100,000");
 
+        var entityTypeLabel = _infoBox.GetNodeOrNull<Label>("%EntityTypeLabel");
+        AssertThat(entityTypeLabel).IsNotNull();
+        AssertThat(entityTypeLabel.Text).IsEqual("EMPIRE");
+
         var foodLabel = _infoBox.GetNodeOrNull<Label>("%FoodValueLabel");
         AssertThat(foodLabel).IsNotNull();
         AssertThat(foodLabel.Text).Contains("1,200");
-        AssertThat(foodLabel.Text).Contains("+45/t");
+        AssertThat(foodLabel.Text).Contains("+45/mo");
 
         var oreLabel = _infoBox.GetNodeOrNull<Label>("%OreValueLabel");
         AssertThat(oreLabel).IsNotNull();
         AssertThat(oreLabel.Text).Contains("850");
-        AssertThat(oreLabel.Text).Contains("+30/t");
+        AssertThat(oreLabel.Text).Contains("+30/mo");
 
         var creditsLabel = _infoBox.GetNodeOrNull<Label>("%CreditsValueLabel");
         AssertThat(creditsLabel).IsNotNull();
         AssertThat(creditsLabel.Text).Contains("5,000");
-        AssertThat(creditsLabel.Text).Contains("+150/t");
+        AssertThat(creditsLabel.Text).Contains("+150/mo");
 
         var starsList = _infoBox.GetNodeOrNull<VBoxContainer>("%StarsList");
         AssertThat(starsList).IsNotNull();
@@ -199,6 +203,7 @@ public partial class EmpireInfoBoxTest
         AssertThat(button.Text).Contains("Terran Ascendancy");
         AssertThat(button.Text).Contains("[2]");
 
+        empiresList._ExitTree();
         empiresList.Free();
     }
 
@@ -239,6 +244,6 @@ public partial class EmpireInfoBoxTest
         AssertThat(projectBtn).IsNotNull();
         AssertThat(projectBtn.Text).Contains("Orbital Hydroponics");
         AssertThat(projectBtn.Text).Contains("Sol Prime");
-        AssertThat(projectBtn.Text).Contains("2t left");
+        AssertThat(projectBtn.Text).Contains("2m left");
     }
 }

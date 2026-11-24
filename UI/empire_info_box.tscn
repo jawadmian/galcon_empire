@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://bc0khw4u20cec"]
 
-[ext_resource type="Script" path="res://UI/EmpireInfoBox.cs" id="1_scgv5"]
+[ext_resource type="Script" uid="uid://bln2u5vy2rho0" path="res://UI/EmpireInfoBox.cs" id="1_scgv5"]
 [ext_resource type="Texture2D" uid="uid://c8a5jdadnoh02" path="res://Images/UI/scifi_panel_bg.png" id="2_0n3uf"]
 [ext_resource type="Texture2D" uid="uid://bxaq8mim4wefe" path="res://Images/UI/icon_focus.png" id="3_fmspo"]
 [ext_resource type="StyleBox" uid="uid://dy4l4uu600d6a" path="res://UI/Styles/scifi_button_normal.tres" id="4_r7eji"]
@@ -264,3 +264,14 @@ theme_override_styles/pressed = ExtResource("12_bg4f3")
 theme_override_styles/hover = ExtResource("12_bg4f3")
 theme_override_styles/focus = ExtResource("11_un2m0")
 text = "✕"
+
+[node name="EntityTypeLabel" type="Label" parent="." unique_id=170244754]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 28.0
+offset_top = 14.0
+offset_right = 240.0
+offset_bottom = 32.0
+theme_override_colors/font_color = Color(1, 0.84313726, 0, 1)
+theme_override_font_sizes/font_size = 11
+text = "EMPIRE"

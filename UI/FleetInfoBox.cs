@@ -119,6 +119,9 @@ public partial class FleetInfoBox : Control
 
     private void OnTickUpdate(int tick)
     {
+        if (!GodotObject.IsInstanceValid(this) || IsQueuedForDeletion())
+            return;
+
         if (_currentFleet != null && GodotObject.IsInstanceValid(_currentFleet))
         {
             RefreshDisplay();
@@ -228,7 +231,7 @@ public partial class FleetInfoBox : Control
 
         if (_speedLabel != null)
         {
-            _speedLabel.Text = $"SPEED: {_currentFleet.FleetSpeed:F0} u/tick | SHIPS: {_currentFleet.Ships.Count}";
+            _speedLabel.Text = $"SPEED: {_currentFleet.FleetSpeed:F0} u/mo | SHIPS: {_currentFleet.Ships.Count}";
         }
     }
 
@@ -263,8 +266,10 @@ public partial class FleetInfoBox : Control
             Ship capturedShip = ship;
             var btn = new Button
             {
-                Text = $"{ship.Design?.DesignName ?? "Ship"} #{ship.ShipId}  ({ship.CurrentHitPoints}/{ship.MaxHitPoints} HP)",
+                Text = $"{ship.Design?.DesignName ?? "Ship"}  ({ship.CurrentHitPoints}/{ship.MaxHitPoints} HP)",
                 Alignment = HorizontalAlignment.Left,
+                ClipText = true,
+                TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis,
                 CustomMinimumSize = new Vector2(0, 26),
                 SizeFlagsHorizontal = SizeFlags.ExpandFill,
             };
@@ -321,8 +326,9 @@ public partial class FleetInfoBox : Control
         {
             var label = new Label
             {
-                Text = $"[Day {ev.Tick}] {ev.Title}: {ev.RawText}",
+                Text = $"[{TickManager.FormatShortDate(ev.Tick)}] {ev.Title}: {ev.RawText}",
                 AutowrapMode = TextServer.AutowrapMode.WordSmart,
+                CustomMinimumSize = new Vector2(10, 0),
                 SizeFlagsHorizontal = SizeFlags.ExpandFill,
             };
             label.AddThemeFontSizeOverride("font_size", 11);
