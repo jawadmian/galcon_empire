@@ -29,6 +29,22 @@ public partial class ChronicleManager : Node
     [Signal]
     public delegate void EventRecordedEventHandler(long eventId, string title, string category, int tick);
 
+    [Signal]
+    public delegate void EntityLinkClickedEventHandler(string entityType, string chronicleId);
+
+    [Signal]
+    public delegate void TombstoneLinkClickedEventHandler(string entityType, string chronicleId);
+
+    private readonly Dictionary<string, IChronicleEntity> _entityRegistry =
+        new Dictionary<string, IChronicleEntity>(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, Func<string, IChronicleEntity>> _entityResolvers =
+        new Dictionary<string, Func<string, IChronicleEntity>>(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, Action<IChronicleEntity, Node>> _linkHandlers =
+        new Dictionary<string, Action<IChronicleEntity, Node>>(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, Action<ChronicleTombstone, Node>> _tombstoneHandlers =
+        new Dictionary<string, Action<ChronicleTombstone, Node>>(StringComparer.OrdinalIgnoreCase);
+    private Action<ChronicleTombstone, Node> _defaultTombstoneHandler;
+
     [Export]
     public string DatabasePath { get; set; } = "res://saves/chronicle.db";
 
@@ -194,6 +210,15 @@ public partial class ChronicleManager : Node
             CREATE INDEX IF NOT EXISTS idx_chronicle_category ON chronicle_events(category);
             CREATE INDEX IF NOT EXISTS idx_chronicle_primary_entity ON chronicle_events(primary_entity_id);
             CREATE INDEX IF NOT EXISTS idx_chronicle_entity_tags ON chronicle_events(entity_tags);
+
+            CREATE TABLE IF NOT EXISTS chronicle_entities (
+                chronicle_id TEXT PRIMARY KEY,
+                entity_type TEXT NOT NULL,
+                display_name TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'Active',
+                last_known_tick INTEGER NOT NULL DEFAULT 0,
+                summary_json TEXT DEFAULT '{}'
+            );
         ";
 
         using var cmd = _dbConnection.CreateCommand();
@@ -438,6 +463,7 @@ public partial class ChronicleManager : Node
             using var cmd = _dbConnection.CreateCommand();
             cmd.CommandText = @"
                 DELETE FROM chronicle_events;
+                DELETE FROM chronicle_entities;
                 DELETE FROM sqlite_sequence WHERE name='chronicle_events';
             ";
             cmd.ExecuteNonQuery();
@@ -450,6 +476,394 @@ public partial class ChronicleManager : Node
     public void ResetWorldState()
     {
         ClearHistory();
+        lock (_dbLock)
+        {
+            _entityRegistry.Clear();
+        }
+    }
+
+    /// <summary>
+    /// Registers a live or historical entity so BBCode hyperlinks (<c>entity:type:id</c>)
+    /// can resolve back to the entity instance when clicked in UI panels, and persists
+    /// an archive snapshot for tombstone fallback if the entity later leaves the game.
+    /// </summary>
+    public void RegisterEntity(IChronicleEntity entity, int? tick = null)
+    {
+        if (entity == null || string.IsNullOrEmpty(entity.ChronicleId))
+            return;
+
+        lock (_dbLock)
+        {
+            _entityRegistry[entity.ChronicleId] = entity;
+            UpsertEntitySnapshotLocked(
+                entity.ChronicleId,
+                entity.ChronicleType,
+                entity.ChronicleName,
+                "Active",
+                tick ?? GetCurrentTick(),
+                null
+            );
+        }
+    }
+
+    /// <summary>
+    /// Marks an entity as tombstoned (no longer active in the game), removing it from the
+    /// live entity cache and persisting its final status and optional summary metadata.
+    /// </summary>
+    public void MarkEntityTombstoned(
+        IChronicleEntity entity,
+        string status = "Archived",
+        Dictionary<string, object> summaryMetadata = null,
+        int? tick = null
+    )
+    {
+        if (entity == null || string.IsNullOrEmpty(entity.ChronicleId))
+            return;
+
+        string summaryJson = summaryMetadata != null && summaryMetadata.Count > 0
+            ? System.Text.Json.JsonSerializer.Serialize(summaryMetadata)
+            : null;
+
+        lock (_dbLock)
+        {
+            _entityRegistry.Remove(entity.ChronicleId);
+            UpsertEntitySnapshotLocked(
+                entity.ChronicleId,
+                entity.ChronicleType,
+                entity.ChronicleName,
+                string.IsNullOrEmpty(status) ? "Archived" : status,
+                tick ?? GetCurrentTick(),
+                summaryJson
+            );
+        }
+    }
+
+    private void UpsertEntitySnapshotLocked(
+        string chronicleId,
+        string entityType,
+        string displayName,
+        string status,
+        int tick,
+        string summaryJson
+    )
+    {
+        if (_dbConnection == null || _dbConnection.State != System.Data.ConnectionState.Open)
+            return;
+
+        try
+        {
+            const string sql = @"
+                INSERT INTO chronicle_entities (
+                    chronicle_id, entity_type, display_name, status, last_known_tick, summary_json
+                ) VALUES (
+                    @id, @type, @name, @status, @tick, COALESCE(@summary, '{}')
+                )
+                ON CONFLICT(chronicle_id) DO UPDATE SET
+                    entity_type = excluded.entity_type,
+                    display_name = excluded.display_name,
+                    status = CASE WHEN excluded.status = 'Active' AND chronicle_entities.status != 'Active' THEN chronicle_entities.status ELSE excluded.status END,
+                    last_known_tick = MAX(chronicle_entities.last_known_tick, excluded.last_known_tick),
+                    summary_json = CASE WHEN @summary IS NOT NULL THEN @summary ELSE chronicle_entities.summary_json END;
+            ";
+
+            using var cmd = _dbConnection.CreateCommand();
+            cmd.CommandText = sql;
+            cmd.Parameters.AddWithValue("@id", chronicleId);
+            cmd.Parameters.AddWithValue("@type", entityType ?? string.Empty);
+            cmd.Parameters.AddWithValue("@name", displayName ?? string.Empty);
+            cmd.Parameters.AddWithValue("@status", status ?? "Active");
+            cmd.Parameters.AddWithValue("@tick", tick);
+            cmd.Parameters.AddWithValue("@summary", (object)summaryJson ?? DBNull.Value);
+            cmd.ExecuteNonQuery();
+        }
+        catch (Exception ex)
+        {
+            GD.PrintErr($"ChronicleManager: Failed to upsert entity snapshot '{chronicleId}': {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Retrieves an archived tombstone snapshot for an entity that is no longer active in the game.
+    /// Falls back to reconstructing basic identity from <c>chronicle_events</c> if needed.
+    /// </summary>
+    public ChronicleTombstone GetTombstone(string chronicleId)
+    {
+        if (string.IsNullOrEmpty(chronicleId))
+            return null;
+
+        string normalized = chronicleId.StartsWith("entity:", StringComparison.OrdinalIgnoreCase)
+            ? chronicleId.Substring("entity:".Length)
+            : chronicleId;
+
+        lock (_dbLock)
+        {
+            if (_dbConnection == null || _dbConnection.State != System.Data.ConnectionState.Open)
+                return null;
+
+            using (var cmd = _dbConnection.CreateCommand())
+            {
+                cmd.CommandText = @"
+                    SELECT chronicle_id, entity_type, display_name, status, last_known_tick, summary_json
+                    FROM chronicle_entities
+                    WHERE chronicle_id = @id
+                    LIMIT 1;
+                ";
+                cmd.Parameters.AddWithValue("@id", normalized);
+                using var reader = cmd.ExecuteReader();
+                if (reader.Read())
+                {
+                    string status = reader.GetString(3);
+                    return new ChronicleTombstone
+                    {
+                        ChronicleId = reader.GetString(0),
+                        EntityType = reader.GetString(1),
+                        DisplayName = reader.GetString(2),
+                        Status = string.Equals(status, "Active", StringComparison.OrdinalIgnoreCase)
+                            ? "No Longer Active"
+                            : status,
+                        LastKnownTick = reader.GetInt32(4),
+                        SummaryJson = reader.IsDBNull(5) ? "{}" : reader.GetString(5),
+                    };
+                }
+            }
+
+            // Fallback: reconstruct from historical events if entity was never explicitly snapshotted
+            var fallbackFilter = new ChronicleFilter { EntityId = normalized, Limit = 1 };
+            var events = QueryEvents(fallbackFilter);
+            if (events.Count > 0)
+            {
+                int colonIdx = normalized.IndexOf(':');
+                string entityType = colonIdx > 0 ? normalized.Substring(0, colonIdx) : "entity";
+                string displayName = ExtractLinkTextForId(events[0].FormattedBbcode, normalized) ?? normalized;
+                return new ChronicleTombstone
+                {
+                    ChronicleId = normalized,
+                    EntityType = entityType,
+                    DisplayName = displayName,
+                    Status = "No Longer Active",
+                    LastKnownTick = events[0].Tick,
+                    SummaryJson = "{}",
+                };
+            }
+        }
+
+        return null;
+    }
+
+    private static string ExtractLinkTextForId(string bbcode, string chronicleId)
+    {
+        if (string.IsNullOrEmpty(bbcode) || string.IsNullOrEmpty(chronicleId))
+            return null;
+
+        string prefix = $"[url=entity:{chronicleId}]";
+        int start = bbcode.IndexOf(prefix, StringComparison.OrdinalIgnoreCase);
+        if (start < 0)
+            return null;
+
+        int textStart = start + prefix.Length;
+        int end = bbcode.IndexOf("[/url]", textStart, StringComparison.OrdinalIgnoreCase);
+        return end > textStart ? bbcode.Substring(textStart, end - textStart) : null;
+    }
+
+    /// <summary>
+    /// Removes an entity from the hyperlink resolution cache.
+    /// </summary>
+    public void UnregisterEntity(string chronicleId)
+    {
+        if (string.IsNullOrEmpty(chronicleId))
+            return;
+
+        lock (_dbLock)
+        {
+            _entityRegistry.Remove(chronicleId);
+        }
+    }
+
+    /// <summary>
+    /// Registers a fallback resolver for a given <see cref="IChronicleEntity.ChronicleType"/>
+    /// (e.g. querying a manager when an entity wasn't cached directly).
+    /// </summary>
+    public void RegisterEntityResolver(string entityType, Func<string, IChronicleEntity> resolver)
+    {
+        if (string.IsNullOrEmpty(entityType) || resolver == null)
+            return;
+
+        _entityResolvers[entityType] = resolver;
+    }
+
+    /// <summary>
+    /// Registers a typed click handler for a given entity type (e.g. opening its inspector panel).
+    /// </summary>
+    public void RegisterLinkHandler<T>(string entityType, Action<T, Node> handler)
+        where T : class, IChronicleEntity
+    {
+        if (string.IsNullOrEmpty(entityType) || handler == null)
+            return;
+
+        _linkHandlers[entityType] = (entity, contextNode) =>
+        {
+            if (entity is T typed)
+            {
+                handler(typed, contextNode);
+            }
+        };
+    }
+
+    /// <summary>
+    /// Registers an untyped click handler for a given entity type.
+    /// </summary>
+    public void RegisterLinkHandler(string entityType, Action<IChronicleEntity, Node> handler)
+    {
+        if (string.IsNullOrEmpty(entityType) || handler == null)
+            return;
+
+        _linkHandlers[entityType] = handler;
+    }
+
+    public bool HasLinkHandler(string entityType)
+    {
+        return !string.IsNullOrEmpty(entityType) && _linkHandlers.ContainsKey(entityType);
+    }
+
+    /// <summary>
+    /// Registers a tombstone handler for a specific entity type when the live entity no longer exists.
+    /// </summary>
+    public void RegisterTombstoneHandler(string entityType, Action<ChronicleTombstone, Node> handler)
+    {
+        if (string.IsNullOrEmpty(entityType) || handler == null)
+            return;
+
+        _tombstoneHandlers[entityType] = handler;
+    }
+
+    /// <summary>
+    /// Registers a fallback tombstone handler invoked for any entity type without a specialized tombstone handler.
+    /// </summary>
+    public void RegisterDefaultTombstoneHandler(Action<ChronicleTombstone, Node> handler)
+    {
+        _defaultTombstoneHandler = handler;
+    }
+
+    public bool HasDefaultTombstoneHandler => _defaultTombstoneHandler != null;
+
+    /// <summary>
+    /// Resolves a chronicle entity by its <c>ChronicleId</c> (or <c>type:id</c> link tag),
+    /// pruning freed GodotObject instances safely.
+    /// </summary>
+    public IChronicleEntity ResolveEntity(string chronicleId)
+    {
+        if (string.IsNullOrEmpty(chronicleId))
+            return null;
+
+        string normalized = chronicleId.StartsWith("entity:", StringComparison.OrdinalIgnoreCase)
+            ? chronicleId.Substring("entity:".Length)
+            : chronicleId;
+
+        lock (_dbLock)
+        {
+            if (TryGetValidCachedEntity(normalized, out var cached))
+                return cached;
+
+            int colonIdx = normalized.IndexOf(':');
+            if (colonIdx > 0)
+            {
+                string shortId = normalized.Substring(colonIdx + 1);
+                if (TryGetValidCachedEntity(shortId, out cached))
+                    return cached;
+            }
+        }
+
+        int typeColonIdx = normalized.IndexOf(':');
+        if (typeColonIdx > 0)
+        {
+            string entityType = normalized.Substring(0, typeColonIdx);
+            if (_entityResolvers.TryGetValue(entityType, out var resolver))
+            {
+                var resolved = resolver(normalized);
+                if (IsEntityValid(resolved))
+                {
+                    RegisterEntity(resolved);
+                    return resolved;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private bool TryGetValidCachedEntity(string key, out IChronicleEntity entity)
+    {
+        if (_entityRegistry.TryGetValue(key, out entity))
+        {
+            if (IsEntityValid(entity))
+                return true;
+
+            _entityRegistry.Remove(key);
+            entity = null;
+        }
+        return false;
+    }
+
+    private static bool IsEntityValid(IChronicleEntity entity)
+    {
+        if (entity == null)
+            return false;
+        if (entity is GodotObject godotObj)
+            return GodotObject.IsInstanceValid(godotObj) && !((godotObj as Node)?.IsQueuedForDeletion() ?? false);
+        return true;
+    }
+
+    /// <summary>
+    /// Parses a BBCode <c>entity:&lt;type&gt;:&lt;id&gt;</c> meta payload, emits <see cref="EntityLinkClicked"/>,
+    /// resolves the entity, and invokes the registered handler for its <c>ChronicleType</c>.
+    /// </summary>
+    public bool TryHandleLinkClick(string meta, Node contextNode = null)
+    {
+        if (string.IsNullOrEmpty(meta))
+            return false;
+
+        string chronicleId = meta.StartsWith("entity:", StringComparison.OrdinalIgnoreCase)
+            ? meta.Substring("entity:".Length)
+            : meta;
+
+        int colonIdx = chronicleId.IndexOf(':');
+        string entityType = colonIdx > 0 ? chronicleId.Substring(0, colonIdx) : string.Empty;
+
+        EmitSignal(SignalName.EntityLinkClicked, entityType, chronicleId);
+
+        IChronicleEntity entity = ResolveEntity(chronicleId);
+        if (entity != null)
+        {
+            string handlerKey = !string.IsNullOrEmpty(entity.ChronicleType) ? entity.ChronicleType : entityType;
+            if (_linkHandlers.TryGetValue(handlerKey, out var handler))
+            {
+                handler(entity, contextNode);
+                return true;
+            }
+            return false;
+        }
+
+        // Entity is no longer active in the game — fall back to tombstone snapshot
+        ChronicleTombstone tombstone = GetTombstone(chronicleId);
+        if (tombstone == null)
+            return false;
+
+        string tombstoneKey = !string.IsNullOrEmpty(tombstone.EntityType) ? tombstone.EntityType : entityType;
+        EmitSignal(SignalName.TombstoneLinkClicked, tombstoneKey, tombstone.ChronicleId);
+
+        if (_tombstoneHandlers.TryGetValue(tombstoneKey, out var specificTombstoneHandler))
+        {
+            specificTombstoneHandler(tombstone, contextNode);
+            return true;
+        }
+
+        if (_defaultTombstoneHandler != null)
+        {
+            _defaultTombstoneHandler(tombstone, contextNode);
+            return true;
+        }
+
+        return false;
     }
 
     public void CloseDatabase()

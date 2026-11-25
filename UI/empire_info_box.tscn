@@ -248,6 +248,39 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 
+[node name="HSeparator5" type="HSeparator" parent="Background/ContentMargin/MainVBox" unique_id=1285470309]
+layout_mode = 2
+
+[node name="ChronicleHeaderHBox" type="HBoxContainer" parent="Background/ContentMargin/MainVBox" unique_id=1089782356]
+layout_mode = 2
+
+[node name="ChronicleHeader" type="Label" parent="Background/ContentMargin/MainVBox/ChronicleHeaderHBox" unique_id=1423264924]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.56078434, 0.6392157, 0.7490196, 1)
+theme_override_font_sizes/font_size = 11
+text = "EMPIRE CHRONICLE"
+
+[node name="ChronicleFilterButton" type="Button" parent="Background/ContentMargin/MainVBox/ChronicleHeaderHBox" unique_id=1661996135]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(118, 22)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.84313726, 0, 1)
+theme_override_font_sizes/font_size = 10
+text = "VIEW: HIGH"
+
+[node name="ChronicleScroll" type="ScrollContainer" parent="Background/ContentMargin/MainVBox" unique_id=1689852879]
+custom_minimum_size = Vector2(0, 90)
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="ChronicleList" type="VBoxContainer" parent="Background/ContentMargin/MainVBox/ChronicleScroll" unique_id=1776216040]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
 [node name="CloseButton" type="Button" parent="." unique_id=1544017262]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(24, 24)

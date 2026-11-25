@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Godot;
 
 public partial class StarInfoBox : Control
@@ -25,9 +26,14 @@ public partial class StarInfoBox : Control
     private VBoxContainer _improvementsList;
     private Label _orbitingTitle;
     private VBoxContainer _orbitingList;
+    private VBoxContainer _chronicleList;
+    private Button _chronicleFilterButton;
+    private ChronicleViewMode _chronicleViewMode = ChronicleViewMode.CondensedHigh;
     private int _lastImprovementsCount = -1;
     private int _lastActiveConstructionCount = -1;
     private int _lastOrbitingShipsCount = -1;
+    private int _lastChronicleCount = -1;
+    private long _lastChronicleLatestId = -1;
 
     // Window dragging
     private bool _isDraggingWindow = false;
@@ -75,6 +81,13 @@ public partial class StarInfoBox : Control
         _improvementsList = GetNodeOrNull<VBoxContainer>("%ImprovementsList");
         _orbitingTitle = GetNodeOrNull<Label>("%OrbitingTitle");
         _orbitingList = GetNodeOrNull<VBoxContainer>("%OrbitingList");
+        _chronicleList = GetNodeOrNull<VBoxContainer>("%ChronicleList");
+        _chronicleFilterButton = GetNodeOrNull<Button>("%ChronicleFilterButton");
+        ChroniclePanelHelper.ConfigureFilterButton(
+            _chronicleFilterButton,
+            _chronicleViewMode,
+            OnChronicleFilterPressed
+        );
 
         if (_closeButton != null)
         {
@@ -97,6 +110,14 @@ public partial class StarInfoBox : Control
         }
     }
 
+    public override void _Input(InputEvent @event)
+    {
+        if (_isDraggingWindow && @event is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Left && !mb.Pressed)
+        {
+            _isDraggingWindow = false;
+        }
+    }
+
     public override void _GuiInput(InputEvent @event)
     {
         if (@event is InputEventMouseButton mb)
@@ -105,6 +126,8 @@ public partial class StarInfoBox : Control
             {
                 if (mb.Pressed)
                 {
+                    if (ChroniclePanelHelper.IsPointerOverChronicle(_chronicleList))
+                        return;
                     _isDraggingWindow = true;
                     _dragOffset = GetGlobalMousePosition() - GlobalPosition;
                 }
@@ -151,6 +174,7 @@ public partial class StarInfoBox : Control
             UpdateRealtimeMetrics();
             PopulateImprovements();
             PopulateOrbitingShips();
+            PopulateChronicle();
         }
     }
 
@@ -180,6 +204,8 @@ public partial class StarInfoBox : Control
             return null;
         }
 
+        Instance = infoBox;
+
         // Prefer adding to an active CanvasLayer so the HUD doesn't translate with the camera
         if (contextNode != null && contextNode.IsInsideTree())
         {
@@ -207,6 +233,8 @@ public partial class StarInfoBox : Control
         _lastImprovementsCount = -1;
         _lastActiveConstructionCount = -1;
         _lastOrbitingShipsCount = -1;
+        _lastChronicleCount = -1;
+        _lastChronicleLatestId = -1;
         if (IsNodeReady() || _nameLabel != null)
         {
             RefreshDisplay();
@@ -247,6 +275,9 @@ public partial class StarInfoBox : Control
 
         // Orbiting Ships
         PopulateOrbitingShips();
+
+        // System Chronicle
+        PopulateChronicle();
     }
 
     private void UpdateRealtimeMetrics()
@@ -516,6 +547,39 @@ public partial class StarInfoBox : Control
                 _orbitingList.AddChild(btn);
             }
         }
+    }
+
+    private void OnChronicleFilterPressed()
+    {
+        SetChronicleViewMode(ChronicleFilter.NextViewMode(_chronicleViewMode));
+    }
+
+    public void SetChronicleViewMode(ChronicleViewMode mode)
+    {
+        _chronicleViewMode = mode;
+        _lastChronicleCount = -1;
+        _lastChronicleLatestId = -1;
+        if (_chronicleFilterButton != null)
+        {
+            _chronicleFilterButton.Text = ChronicleFilter.GetViewModeLabel(_chronicleViewMode);
+        }
+        PopulateChronicle();
+    }
+
+    private void PopulateChronicle()
+    {
+        if (_currentStar == null || !GodotObject.IsInstanceValid(_currentStar))
+            return;
+
+        ChroniclePanelHelper.PopulateChronicle(
+            _chronicleList,
+            _currentStar,
+            _chronicleViewMode,
+            "• No recorded system events yet",
+            this,
+            ref _lastChronicleCount,
+            ref _lastChronicleLatestId
+        );
     }
 
     private System.Collections.Generic.List<Empire.ConstructionDisplayInfo> GetActiveProjectsForStar(Star star)

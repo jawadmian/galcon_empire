@@ -114,6 +114,22 @@ ChronicleEvent.Create("Quest", "Dragon Slain", EventPriority.High)
 
 ### Query Events & Handle UI Hyperlinks
 ```csharp
+// 1. Register link handlers once at startup (e.g. opening each entity's inspector panel)
+ChronicleManager.Instance.RegisterLinkHandler<Faction>("faction", (faction, ctx) =>
+{
+    FactionInfoBox.OpenForFaction(faction, ctx);
+});
+
+// Optional: register a tombstone fallback for entities no longer active in the game
+ChronicleManager.Instance.RegisterDefaultTombstoneHandler((tombstone, ctx) =>
+{
+    TombstoneInfoBox.OpenForTombstone(tombstone, ctx);
+});
+
+// Mark an entity tombstoned when expended, disbanded, or destroyed
+ChronicleManager.Instance.MarkEntityTombstoned(unit, "Destroyed in Battle");
+
+// 2. Query events
 var filter = new ChronicleFilter
 {
     EntityId = factionA.ChronicleId,
@@ -126,4 +142,7 @@ List<ChronicleRecord> records = ChronicleManager.Instance.QueryEvents(filter);
 
 In a Godot `RichTextLabel` with `BbcodeEnabled = true`:
 - Render `record.FormattedBbcode`.
-- Connect `MetaClicked` to parse `meta.AsString()` (format: `"entity:<type>:<id>"`), look up the entity, and focus the camera or open its inspector.
+- Connect `MetaClicked` directly to `ChronicleManager`:
+  ```csharp
+  richLabel.MetaClicked += meta => ChronicleManager.Instance?.TryHandleLinkClick(meta.AsString(), this);
+  ```

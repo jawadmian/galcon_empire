@@ -8,6 +8,7 @@ public partial class GalaxySpawner : Node2D
     {
         // Reset the Chronicle DB and simulation clock only when starting a new game
         ChronicleManager.Instance?.ResetWorldState();
+        ChroniclePanelHelper.EnsureDefaultBindings();
         if (TickManager.HasInstance)
         {
             TickManager.Instance.tickCount = 0;

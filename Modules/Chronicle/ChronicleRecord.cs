@@ -77,3 +77,21 @@ public enum ChronicleViewMode
     DetailedNormalPlus,
     DetailedLow,
 }
+
+/// <summary>
+/// Archived snapshot for an entity that is no longer active in the live game
+/// (e.g. an expended colony ship, disbanded fleet, or eliminated empire).
+/// </summary>
+public class ChronicleTombstone : IChronicleEntity
+{
+    public string ChronicleId { get; set; } = string.Empty;
+    public string EntityType { get; set; } = string.Empty;
+    public string DisplayName { get; set; } = string.Empty;
+    public string Status { get; set; } = "Archived";
+    public int LastKnownTick { get; set; }
+    public string SummaryJson { get; set; } = "{}";
+
+    string IChronicleEntity.ChronicleName => DisplayName;
+    string IChronicleEntity.ChronicleType => EntityType;
+    Godot.Vector2? IChronicleEntity.WorldPosition => null;
+}

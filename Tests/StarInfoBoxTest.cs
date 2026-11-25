@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using Godot;
 using GdUnit4;
 using static GdUnit4.Assertions;
@@ -349,5 +350,65 @@ public partial class StarInfoBoxTest
 
         fleet.Free();
         empire.Free();
+    }
+
+    [TestCase]
+    public void TestStarChronicleRendersAndFiltersByPriority()
+    {
+        var previousManager = ChronicleManager.Instance;
+        var testManager = new ChronicleManager();
+        testManager.InitializeDatabase("Data Source=StarInfoBoxChronicleTest;Mode=Memory;Cache=Shared");
+        ChronicleManager.SetInstanceForTesting(testManager);
+
+        try
+        {
+            var empire = new Empire { EmpireName = "Solar Republic", HomeStar = _star };
+
+            ChronicleEvent.Create(EventCategory.Political, "Colony Founded", EventPriority.High)
+                .Involving(empire, isPrimary: true)
+                .Involving(_star)
+                .WithTemplate("{empire} founded a colony at {star}.")
+                .Record();
+
+            ChronicleEvent.Create(EventCategory.Economic, "Ore Survey", EventPriority.Low)
+                .Involving(_star, isPrimary: true)
+                .WithTemplate("Survey drones scanned {star}.")
+                .Record();
+
+            _infoBox._Ready();
+            _infoBox.DisplayStar(_star);
+
+            var chronicleList = _infoBox.GetNodeOrNull<VBoxContainer>("%ChronicleList");
+            var filterBtn = _infoBox.GetNodeOrNull<Button>("%ChronicleFilterButton");
+            AssertThat(chronicleList).IsNotNull();
+            AssertThat(filterBtn).IsNotNull();
+
+            // Default CondensedHigh shows only High priority as RichTextLabel with BBCode link
+            AssertThat(chronicleList.GetChildCount()).IsEqual(1);
+            var highEntry = chronicleList.GetChild(0) as RichTextLabel;
+            AssertThat(highEntry).IsNotNull();
+            AssertThat(highEntry.BbcodeEnabled).IsTrue();
+            AssertThat(highEntry.Text).Contains("Colony Founded");
+            AssertThat(highEntry.Text).Contains($"[url=entity:{empire.ChronicleId}]");
+
+            // Clicking the empire hyperlink opens EmpireInfoBox for empire
+            highEntry.EmitSignal(RichTextLabel.SignalName.MetaClicked, $"entity:{empire.ChronicleId}");
+            var openedEmpireBox = EmpireInfoBox.Instance;
+            AssertThat(openedEmpireBox).IsNotNull();
+            AssertThat(openedEmpireBox.CurrentEmpire).IsEqual(empire);
+            openedEmpireBox.Free();
+
+            // Pressing filter cycles to DetailedAll (both High and Low)
+            filterBtn.EmitSignal(Button.SignalName.Pressed);
+            AssertThat(chronicleList.GetChildCount()).IsEqual(2);
+
+            empire.Free();
+        }
+        finally
+        {
+            testManager.CloseDatabase();
+            testManager.Free();
+            ChronicleManager.SetInstanceForTesting(previousManager);
+        }
     }
 }

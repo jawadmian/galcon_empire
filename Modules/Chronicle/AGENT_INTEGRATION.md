@@ -69,12 +69,21 @@ For every entity type that should appear in history logs or be clickable in UI:
 - `ChronicleEvent.Create(...).Record()` automatically checks `ChronicleManager.Instance != null`, so domain code can safely emit events even in isolated unit tests where `ChronicleManager` is not running.
 - Wrap rich UI text in BBCode only via `WithTemplate(...)`; `ChronicleEventBuilder` automatically produces both `FormattedBbcode` and plain `RawText`.
 
-### Step 8: Connect UI Panels (Optional)
+### Step 8: Connect UI Panels & Hyperlink Dispatch
 - Subscribe to `ChronicleManager.Instance.EventRecorded` (emitted via `CallDeferred` for thread safety).
 - Query with `ChronicleManager.Instance.QueryEvents(filter)` and `GetEventCount(filter)`.
-- In `RichTextLabel` (`BbcodeEnabled = true`), handle `MetaClicked(Variant meta)`:
-  - Link format is `entity:<type>:<id>` (e.g. `entity:city:42`).
-  - Strip the `"entity:"` prefix to get the `ChronicleId` (`city:42`), resolve the entity in your game's registry, and pan camera / open inspector.
+- Register panel openers / click handlers once at startup (or via a shared UI helper):
+  ```csharp
+  ChronicleManager.Instance.RegisterLinkHandler<MyEntity>("mytype", (entity, ctx) => MyInfoBox.OpenFor(entity, ctx));
+  ChronicleManager.Instance.RegisterEntityResolver("mytype", id => MyRegistry.FindByChronicleId(id)); // optional fallback
+  ChronicleManager.Instance.RegisterDefaultTombstoneHandler((tombstone, ctx) => TombstoneInfoBox.OpenForTombstone(tombstone, ctx));
+  ```
+- When an entity is expended, disbanded, or destroyed, call `ChronicleManager.Instance?.MarkEntityTombstoned(entity, "Status", summaryDict)` so clicking its historical link opens the tombstone view.
+- Note: `ChronicleEventBuilder.Record()` automatically caches all involved entities in `ChronicleManager` and prunes freed `GodotObject` instances on lookup.
+- In `RichTextLabel` (`BbcodeEnabled = true`, `FitContent = true`, `ScrollActive = false`), render `record.FormattedBbcode` and forward `MetaClicked`:
+  ```csharp
+  richLabel.MetaClicked += meta => ChronicleManager.Instance?.TryHandleLinkClick(meta.AsString(), ownerControl);
+  ```
 
 ---
 

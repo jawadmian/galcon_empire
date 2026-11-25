@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using Godot;
 using GdUnit4;
 using static GdUnit4.Assertions;
@@ -245,5 +246,78 @@ public partial class EmpireInfoBoxTest
         AssertThat(projectBtn.Text).Contains("Orbital Hydroponics");
         AssertThat(projectBtn.Text).Contains("Sol Prime");
         AssertThat(projectBtn.Text).Contains("2m left");
+    }
+
+    [TestCase]
+    public void TestEmpireChronicleRendersAndFiltersByPriority()
+    {
+        var previousManager = ChronicleManager.Instance;
+        var testManager = new ChronicleManager();
+        testManager.InitializeDatabase("Data Source=EmpireInfoBoxChronicleTest;Mode=Memory;Cache=Shared");
+        ChronicleManager.SetInstanceForTesting(testManager);
+
+        try
+        {
+            ChronicleEvent.Create(EventCategory.Political, "Empire Founded", EventPriority.High)
+                .Involving(_empire, isPrimary: true)
+                .Involving(_capitalStar)
+                .WithTemplate("{empire} was established at {star}.")
+                .Record();
+
+            ChronicleEvent.Create(EventCategory.Economic, "Minor Audit", EventPriority.Low)
+                .Involving(_empire, isPrimary: true)
+                .WithTemplate("{empire} completed routine audit.")
+                .Record();
+
+            _infoBox._Ready();
+            _infoBox.DisplayEmpire(_empire);
+
+            var chronicleList = _infoBox.GetNodeOrNull<VBoxContainer>("%ChronicleList");
+            var filterBtn = _infoBox.GetNodeOrNull<Button>("%ChronicleFilterButton");
+            AssertThat(chronicleList).IsNotNull();
+            AssertThat(filterBtn).IsNotNull();
+
+            // Default CondensedHigh shows only High priority as RichTextLabel with BBCode link
+            AssertThat(chronicleList.GetChildCount()).IsEqual(1);
+            var highEntry = chronicleList.GetChild(0) as RichTextLabel;
+            AssertThat(highEntry).IsNotNull();
+            AssertThat(highEntry.BbcodeEnabled).IsTrue();
+            AssertThat(highEntry.Text).Contains("Empire Founded");
+            AssertThat(highEntry.Text).Contains($"[url=entity:{_capitalStar.ChronicleId}]");
+
+            // Clicking the star hyperlink opens StarInfoBox for _capitalStar
+            highEntry.EmitSignal(RichTextLabel.SignalName.MetaClicked, $"entity:{_capitalStar.ChronicleId}");
+            var openedStarBox = StarInfoBox.Instance;
+            AssertThat(openedStarBox).IsNotNull();
+            AssertThat(openedStarBox.CurrentStar).IsEqual(_capitalStar);
+            openedStarBox.Free();
+
+            // Clicking inside ChronicleScroll must not start dragging the parent panel
+            Vector2 initialPos = _infoBox.GlobalPosition;
+            var leftPress = new InputEventMouseButton
+            {
+                ButtonIndex = MouseButton.Left,
+                Pressed = true,
+                Position = new Vector2(10, 5),
+                GlobalPosition = new Vector2(10, 5)
+            };
+            _infoBox._GuiInput(leftPress);
+            _infoBox._GuiInput(new InputEventMouseMotion
+            {
+                Position = new Vector2(120, 80),
+                GlobalPosition = new Vector2(120, 80)
+            });
+            AssertThat(_infoBox.GlobalPosition).IsEqual(initialPos);
+
+            // Pressing filter cycles to DetailedAll (both High and Low)
+            filterBtn.EmitSignal(Button.SignalName.Pressed);
+            AssertThat(chronicleList.GetChildCount()).IsEqual(2);
+        }
+        finally
+        {
+            testManager.CloseDatabase();
+            testManager.Free();
+            ChronicleManager.SetInstanceForTesting(previousManager);
+        }
     }
 }

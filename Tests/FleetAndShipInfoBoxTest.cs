@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Godot;
 using GdUnit4;
 using static GdUnit4.Assertions;
@@ -184,7 +185,19 @@ public partial class FleetAndShipInfoBoxTest
         filterBtn.EmitSignal(Button.SignalName.Pressed);
         AssertThat(filterBtn.Text).IsEqual("DETAILED: ALL");
         AssertThat(chronicleList.GetChildCount()).IsEqual(1);
-        AssertThat((chronicleList.GetChild(0) as Label)?.Text).Contains("Fleet Dispatched");
+        var fleetEntry = chronicleList.GetChild(0) as RichTextLabel;
+        AssertThat(fleetEntry).IsNotNull();
+        AssertThat(fleetEntry.BbcodeEnabled).IsTrue();
+        AssertThat(fleetEntry.Text).Contains("Fleet Dispatched");
+        AssertThat(fleetEntry.Text).Contains($"[url=entity:{fleet.ChronicleId}]");
+        AssertThat(fleetEntry.Text).Contains($"[url=entity:{target.ChronicleId}]");
+
+        // Clicking the target star hyperlink from FleetInfoBox opens StarInfoBox for target
+        fleetEntry.EmitSignal(RichTextLabel.SignalName.MetaClicked, $"entity:{target.ChronicleId}");
+        var openedStarBox = StarInfoBox.Instance;
+        AssertThat(openedStarBox).IsNotNull();
+        AssertThat(openedStarBox.CurrentStar).IsEqual(target);
+        openedStarBox.Free();
     }
 
     [TestCase]
@@ -366,7 +379,19 @@ public partial class FleetAndShipInfoBoxTest
         filterBtn.EmitSignal(Button.SignalName.Pressed);
         AssertThat(filterBtn.Text).IsEqual("DETAILED: ALL");
         AssertThat(chronicleList.GetChildCount()).IsEqual(1);
-        AssertThat((chronicleList.GetChild(0) as Label)?.Text).Contains("Fleet Dispatched");
+        var shipEntry = chronicleList.GetChild(0) as RichTextLabel;
+        AssertThat(shipEntry).IsNotNull();
+        AssertThat(shipEntry.BbcodeEnabled).IsTrue();
+        AssertThat(shipEntry.Text).Contains("Fleet Dispatched");
+        AssertThat(shipEntry.Text).Contains($"[url=entity:{fleet.ChronicleId}]");
+        AssertThat(shipEntry.Text).Contains($"[url=entity:{dest.ChronicleId}]");
+
+        // Clicking the fleet hyperlink from ShipInfoBox opens FleetInfoBox for fleet
+        shipEntry.EmitSignal(RichTextLabel.SignalName.MetaClicked, $"entity:{fleet.ChronicleId}");
+        var openedFleetBox = FleetInfoBox.Instance;
+        AssertThat(openedFleetBox).IsNotNull();
+        AssertThat(openedFleetBox.CurrentFleet).IsEqual(fleet);
+        openedFleetBox.Free();
     }
 
     [TestCase]
@@ -389,5 +414,60 @@ public partial class FleetAndShipInfoBoxTest
 
         AssertThat(TickManager.FormatDate(25)).IsEqual("Year 3, Month 2");
         AssertThat(TickManager.FormatShortDate(25)).IsEqual("Y3 M2");
+    }
+
+    [TestCase]
+    public void TestExpendedColonyShipAndDisbandedFleetOpenTombstoneInfoBox()
+    {
+        var empire = new Empire { EmpireName = "Pioneers", EmpireColor = Colors.Cyan };
+        var origin = new Star { StarName = "Sol", Position = new Vector2(0, 0), StarPopulation = 15000 };
+        var colony = new Star { StarName = "Vega", Position = new Vector2(20, 0) };
+        _createdNodes.Add(empire);
+        _createdNodes.Add(origin);
+        _createdNodes.Add(colony);
+
+        empire.AddStar(origin);
+        var ship = new Ship(CreateColonyDesign())
+        {
+            ShipName = "Mayflower",
+            ClassName = "Ark-Class",
+            BuiltAtStarName = "Sol",
+        };
+        var fleet = new Fleet();
+        fleet.Initialize(empire, origin, ship);
+        empire.RegisterFleet(fleet);
+
+        string shipId = ship.ChronicleId;
+        string fleetId = fleet.ChronicleId;
+
+        fleet.OrderColonize(colony);
+        fleet.UpdateTick(); // Arrives, colonizes Vega, consumes Mayflower, disbands fleet
+
+        // Live entities are gone
+        AssertThat(_chronicleManager.ResolveEntity(shipId)).IsNull();
+        AssertThat(_chronicleManager.ResolveEntity(fleetId)).IsNull();
+
+        // Clicking the expended colony ship link opens TombstoneInfoBox
+        ChroniclePanelHelper.EnsureDefaultBindings(_chronicleManager);
+        bool shipHandled = _chronicleManager.TryHandleLinkClick($"entity:{shipId}");
+        AssertThat(shipHandled).IsTrue();
+
+        var tombstoneBox = TombstoneInfoBox.Instance;
+        AssertThat(tombstoneBox).IsNotNull();
+        AssertThat(tombstoneBox.GetNodeOrNull<Label>("%EntityTypeLabel")?.Text).IsEqual("ARCHIVED SHIP");
+        AssertThat(tombstoneBox.GetNodeOrNull<Label>("%NameLabel")?.Text).IsEqual("MAYFLOWER");
+        AssertThat(tombstoneBox.GetNodeOrNull<Label>("%StatusLabel")?.Text).Contains("EXPENDED IN COLONIZATION");
+        AssertThat(tombstoneBox.GetNodeOrNull<Label>("%SummaryLabel")?.Text).Contains("Vega");
+        var tombstoneChronicle = tombstoneBox.GetNodeOrNull<VBoxContainer>("%ChronicleList");
+        AssertThat(tombstoneChronicle).IsNotNull();
+        AssertThat(tombstoneChronicle.GetChildCount()).IsGreater(0);
+
+        // Clicking the disbanded fleet link retargets TombstoneInfoBox
+        bool fleetHandled = _chronicleManager.TryHandleLinkClick($"entity:{fleetId}");
+        AssertThat(fleetHandled).IsTrue();
+        AssertThat(tombstoneBox.GetNodeOrNull<Label>("%EntityTypeLabel")?.Text).IsEqual("ARCHIVED FLEET");
+        AssertThat(tombstoneBox.GetNodeOrNull<Label>("%StatusLabel")?.Text).Contains("DISBANDED");
+
+        tombstoneBox.Free();
     }
 }

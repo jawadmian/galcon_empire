@@ -515,6 +515,17 @@ public partial class Fleet : Node2D, IChronicleEntity
             .WithMetadata("initial_population", targetStar.StarPopulation)
             .Record();
 
+        ChronicleManager.Instance?.MarkEntityTombstoned(
+            colonyShip,
+            "Expended in Colonization",
+            new Dictionary<string, object>
+            {
+                ["class"] = colonyShip.ClassName,
+                ["built_at"] = string.IsNullOrEmpty(colonyShip.BuiltAtStarName) ? "Unknown" : colonyShip.BuiltAtStarName,
+                ["colony"] = targetStar.StarName,
+            }
+        );
+
         EmitSignal(SignalName.StarColonizedSignal, this, targetStar, OwningEmpire);
 
         if (_ships.Count == 0)
@@ -613,6 +624,15 @@ public partial class Fleet : Node2D, IChronicleEntity
 
     public void Disband()
     {
+        ChronicleManager.Instance?.MarkEntityTombstoned(
+            this,
+            "Disbanded",
+            new Dictionary<string, object>
+            {
+                ["empire"] = OwningEmpire?.EmpireName ?? "Independent",
+            }
+        );
+
         OwningEmpire?.UnregisterFleet(this);
         if (FleetManager.HasInstance)
         {

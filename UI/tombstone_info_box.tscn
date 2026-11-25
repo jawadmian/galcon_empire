@@ -1,0 +1,127 @@
+[gd_scene format=3 uid="uid://dhdnf4nsv8o6g"]
+
+[ext_resource type="Script" uid="uid://dhodsva4mtxgj" path="res://UI/TombstoneInfoBox.cs" id="1_evv3g"]
+[ext_resource type="Texture2D" uid="uid://c8a5jdadnoh02" path="res://Images/UI/scifi_panel_bg.png" id="2_up2pn"]
+
+[node name="TombstoneInfoBox" type="Control" unique_id=1517023713]
+custom_minimum_size = Vector2(380, 420)
+layout_mode = 3
+anchors_preset = 0
+offset_right = 380.0
+offset_bottom = 420.0
+script = ExtResource("1_evv3g")
+
+[node name="Background" type="NinePatchRect" parent="." unique_id=2101346719]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 1
+texture = ExtResource("2_up2pn")
+patch_margin_left = 24
+patch_margin_top = 24
+patch_margin_right = 24
+patch_margin_bottom = 24
+axis_stretch_horizontal = 2
+axis_stretch_vertical = 2
+
+[node name="ContentMargin" type="MarginContainer" parent="Background" unique_id=340043391]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_constants/margin_left = 28
+theme_override_constants/margin_top = 44
+theme_override_constants/margin_right = 28
+theme_override_constants/margin_bottom = 28
+
+[node name="MainVBox" type="VBoxContainer" parent="Background/ContentMargin" unique_id=1711745329]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="NameLabel" type="Label" parent="Background/ContentMargin/MainVBox" unique_id=126070577]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.7176471, 0.3019608, 1)
+theme_override_font_sizes/font_size = 15
+text = "ARCHIVED RECORD"
+autowrap_mode = 3
+
+[node name="StatusLabel" type="Label" parent="Background/ContentMargin/MainVBox" unique_id=470797085]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.84313726, 0, 1)
+theme_override_font_sizes/font_size = 12
+text = "STATUS: ARCHIVED"
+autowrap_mode = 3
+
+[node name="LastSeenLabel" type="Label" parent="Background/ContentMargin/MainVBox" unique_id=972666037]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.56078434, 0.6392157, 0.7490196, 1)
+theme_override_font_sizes/font_size = 11
+text = "LAST RECORDED: Year 1, Month 1"
+
+[node name="SummaryLabel" type="Label" parent="Background/ContentMargin/MainVBox" unique_id=234636131]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.56078434, 0.6392157, 0.7490196, 1)
+theme_override_font_sizes/font_size = 11
+text = "ARCHIVE NOTE: Active game object is no longer present."
+autowrap_mode = 3
+
+[node name="HSeparator1" type="HSeparator" parent="Background/ContentMargin/MainVBox" unique_id=1251937053]
+layout_mode = 2
+
+[node name="ChronicleHeaderHBox" type="HBoxContainer" parent="Background/ContentMargin/MainVBox" unique_id=1270101684]
+layout_mode = 2
+
+[node name="ChronicleHeader" type="Label" parent="Background/ContentMargin/MainVBox/ChronicleHeaderHBox" unique_id=1605597512]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.56078434, 0.6392157, 0.7490196, 1)
+theme_override_font_sizes/font_size = 11
+text = "ARCHIVED CHRONICLE"
+
+[node name="ChronicleFilterButton" type="Button" parent="Background/ContentMargin/MainVBox/ChronicleHeaderHBox" unique_id=1918486132]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(118, 22)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.84313726, 0, 1)
+theme_override_font_sizes/font_size = 10
+text = "DETAILED: ALL"
+
+[node name="ChronicleScroll" type="ScrollContainer" parent="Background/ContentMargin/MainVBox" unique_id=2090615118]
+custom_minimum_size = Vector2(0, 150)
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="ChronicleList" type="VBoxContainer" parent="Background/ContentMargin/MainVBox/ChronicleScroll" unique_id=47031041]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="CloseButton" type="Button" parent="." unique_id=1140970961]
+unique_name_in_owner = true
+layout_mode = 0
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -36.0
+offset_top = 10.0
+offset_right = -12.0
+offset_bottom = 34.0
+text = "✕"
+
+[node name="EntityTypeLabel" type="Label" parent="." unique_id=1606682674]
+unique_name_in_owner = true
+layout_mode = 0
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -190.0
+offset_top = 14.0
+offset_right = -42.0
+offset_bottom = 30.0
+theme_override_colors/font_color = Color(1, 0.7176471, 0.3019608, 1)
+theme_override_font_sizes/font_size = 10
+text = "ARCHIVED RECORD"
+horizontal_alignment = 2

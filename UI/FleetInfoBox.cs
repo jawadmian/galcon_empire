@@ -22,6 +22,7 @@ public partial class FleetInfoBox : Control
     private int _lastShipsCount = -1;
     private FleetState _lastState = FleetState.InOrbit;
     private int _lastChronicleCount = -1;
+    private long _lastChronicleLatestId = -1;
 
     private bool _isDraggingWindow = false;
     private Vector2 _dragOffset = Vector2.Zero;
@@ -58,21 +59,11 @@ public partial class FleetInfoBox : Control
         _shipsList = GetNodeOrNull<VBoxContainer>("%ShipsList");
         _chronicleList = GetNodeOrNull<VBoxContainer>("%ChronicleList");
         _chronicleFilterButton = GetNodeOrNull<Button>("%ChronicleFilterButton");
-
-        if (_chronicleFilterButton != null)
-        {
-            var normalStyle = GD.Load<StyleBox>("res://UI/Styles/scifi_button_normal.tres");
-            var hoverStyle = GD.Load<StyleBox>("res://UI/Styles/scifi_button_hover.tres");
-            if (normalStyle != null)
-            {
-                _chronicleFilterButton.AddThemeStyleboxOverride("normal", normalStyle);
-                _chronicleFilterButton.AddThemeStyleboxOverride("focus", normalStyle);
-            }
-            if (hoverStyle != null)
-                _chronicleFilterButton.AddThemeStyleboxOverride("hover", hoverStyle);
-            _chronicleFilterButton.Text = ChronicleFilter.GetViewModeLabel(_chronicleViewMode);
-            _chronicleFilterButton.Pressed += OnChronicleFilterPressed;
-        }
+        ChroniclePanelHelper.ConfigureFilterButton(
+            _chronicleFilterButton,
+            _chronicleViewMode,
+            OnChronicleFilterPressed
+        );
 
         if (_closeButton != null)
         {
@@ -95,6 +86,14 @@ public partial class FleetInfoBox : Control
         }
     }
 
+    public override void _Input(InputEvent @event)
+    {
+        if (_isDraggingWindow && @event is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Left && !mb.Pressed)
+        {
+            _isDraggingWindow = false;
+        }
+    }
+
     public override void _GuiInput(InputEvent @event)
     {
         if (@event is InputEventMouseButton mb)
@@ -103,6 +102,8 @@ public partial class FleetInfoBox : Control
             {
                 if (mb.Pressed)
                 {
+                    if (ChroniclePanelHelper.IsPointerOverChronicle(_chronicleList))
+                        return;
                     _isDraggingWindow = true;
                     _dragOffset = GetGlobalMousePosition() - GlobalPosition;
                 }
@@ -166,6 +167,7 @@ public partial class FleetInfoBox : Control
 
         var box = scene.Instantiate<FleetInfoBox>();
         box.Position = new Vector2(120, 60);
+        Instance = box;
 
         Node parent = FindUiLayer(contextNode);
         if (parent != null)
@@ -179,18 +181,23 @@ public partial class FleetInfoBox : Control
 
     private static Node FindUiLayer(Node contextNode)
     {
-        if (contextNode != null && contextNode.GetTree() != null)
+        if (contextNode == null || !contextNode.IsInsideTree())
+            return null;
+
+        var tree = contextNode.GetTree();
+        if (tree == null)
+            return null;
+
+        var root = tree.CurrentScene;
+        if (root != null)
         {
-            var root = contextNode.GetTree().CurrentScene;
-            if (root != null)
-            {
-                var canvasLayer = root.GetNodeOrNull<CanvasLayer>("CanvasLayer");
-                if (canvasLayer != null)
-                    return canvasLayer;
-                return root;
-            }
+            var canvasLayer = root.GetNodeOrNull<CanvasLayer>("CanvasLayer");
+            if (canvasLayer != null)
+                return canvasLayer;
+            return root;
         }
-        return null;
+
+        return (Node)(tree.Root?.FindChild("CanvasLayer", true, false) as CanvasLayer) ?? tree.Root;
     }
 
     public void DisplayFleet(Fleet fleet)
@@ -198,6 +205,7 @@ public partial class FleetInfoBox : Control
         _currentFleet = fleet;
         _lastShipsCount = -1;
         _lastChronicleCount = -1;
+        _lastChronicleLatestId = -1;
         RefreshDisplay();
     }
 
@@ -320,6 +328,7 @@ public partial class FleetInfoBox : Control
     {
         _chronicleViewMode = mode;
         _lastChronicleCount = -1;
+        _lastChronicleLatestId = -1;
         if (_chronicleFilterButton != null)
         {
             _chronicleFilterButton.Text = ChronicleFilter.GetViewModeLabel(_chronicleViewMode);
@@ -329,49 +338,18 @@ public partial class FleetInfoBox : Control
 
     private void PopulateChronicle()
     {
-        if (_chronicleList == null || _currentFleet == null)
+        if (_currentFleet == null || !GodotObject.IsInstanceValid(_currentFleet))
             return;
 
-        var filter = new ChronicleFilter { EntityId = _currentFleet.ChronicleId, Limit = 25 };
-        filter.ApplyViewMode(_chronicleViewMode);
-
-        List<ChronicleRecord> events = ChronicleManager.Instance != null
-            ? ChronicleManager.Instance.QueryEvents(filter)
-            : new List<ChronicleRecord>();
-
-        if (events.Count == _lastChronicleCount && _lastChronicleCount >= 0)
-            return;
-
-        _lastChronicleCount = events.Count;
-
-        foreach (Node child in _chronicleList.GetChildren())
-        {
-            _chronicleList.RemoveChild(child);
-            child.QueueFree();
-        }
-
-        if (events.Count == 0)
-        {
-            var emptyLabel = new Label { Text = "• No recorded fleet events yet" };
-            emptyLabel.AddThemeFontSizeOverride("font_size", 11);
-            emptyLabel.AddThemeColorOverride("font_color", new Color("556b82"));
-            _chronicleList.AddChild(emptyLabel);
-            return;
-        }
-
-        foreach (var ev in events)
-        {
-            var label = new Label
-            {
-                Text = $"[{TickManager.FormatShortDate(ev.Tick)}] {ev.Title}: {ev.RawText}",
-                AutowrapMode = TextServer.AutowrapMode.WordSmart,
-                CustomMinimumSize = new Vector2(10, 0),
-                SizeFlagsHorizontal = SizeFlags.ExpandFill,
-            };
-            label.AddThemeFontSizeOverride("font_size", 11);
-            label.AddThemeColorOverride("font_color", new Color("8fa3bf"));
-            _chronicleList.AddChild(label);
-        }
+        ChroniclePanelHelper.PopulateChronicle(
+            _chronicleList,
+            _currentFleet,
+            _chronicleViewMode,
+            "• No recorded fleet events yet",
+            this,
+            ref _lastChronicleCount,
+            ref _lastChronicleLatestId
+        );
     }
 
     private void OnFocusButtonPressed()

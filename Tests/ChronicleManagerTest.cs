@@ -383,4 +383,78 @@ public partial class ChronicleManagerTest
         var all = _manager.QueryEvents(new ChronicleFilter());
         AssertThat(all.Count).IsEqual(3);
     }
+
+    [TestCase]
+    public void TestEntityRegistryAndExtensibleLinkHandlerDispatch()
+    {
+        var sol = new Star { StarName = "Sol", Position = new Vector2(10, 20) };
+        var customEntity = new MockChronicleEntity("leader:kessler", "Admiral Kessler", "leader");
+
+        ChronicleEvent.Create(EventCategory.Political, "Command Assigned", EventPriority.High)
+            .Involving(customEntity, isPrimary: true)
+            .Involving(sol)
+            .WithTemplate("{leader} took command at {star}.")
+            .Record();
+
+        // Both entities are automatically registered and resolvable
+        AssertThat(_manager.ResolveEntity("leader:kessler")).IsEqual(customEntity);
+        AssertThat(_manager.ResolveEntity(sol.ChronicleId)).IsEqual(sol);
+
+        IChronicleEntity openedEntity = null;
+        string clickedType = null;
+        string clickedId = null;
+        _manager.EntityLinkClicked += (type, id) =>
+        {
+            clickedType = type;
+            clickedId = id;
+        };
+        _manager.RegisterLinkHandler<MockChronicleEntity>("leader", (leader, _) =>
+        {
+            openedEntity = leader;
+        });
+
+        bool handled = _manager.TryHandleLinkClick("entity:leader:leader:kessler");
+        AssertThat(handled).IsTrue();
+        AssertThat(openedEntity).IsEqual(customEntity);
+        AssertThat(clickedType).IsEqual("leader");
+
+        // Freed GodotObject nodes are pruned from live cache and fall back to Tombstone
+        sol.Free();
+        AssertThat(_manager.ResolveEntity("star:sol")).IsNull();
+        AssertThat(_manager.TryHandleLinkClick("entity:star:sol")).IsFalse();
+
+        ChronicleTombstone capturedTombstone = null;
+        string tombstoneType = null;
+        _manager.TombstoneLinkClicked += (type, _) => tombstoneType = type;
+        _manager.RegisterDefaultTombstoneHandler((t, _) => capturedTombstone = t);
+
+        AssertThat(_manager.TryHandleLinkClick("entity:star:sol")).IsTrue();
+        AssertThat(tombstoneType).IsEqual("star");
+        AssertThat(capturedTombstone).IsNotNull();
+        AssertThat(capturedTombstone.DisplayName).IsEqual("Sol");
+        AssertThat(clickedId).IsNotNull();
+    }
+
+    [TestCase]
+    public void TestMarkEntityTombstonedPersistsStatusAndMetadata()
+    {
+        var ship = new MockChronicleEntity("ship:dead1", "ISS Endeavor", "ship");
+        ChronicleEvent.Create(EventCategory.Military, "Ship Launched", EventPriority.Normal)
+            .Involving(ship, isPrimary: true)
+            .WithTemplate("{ship} launched.")
+            .Record();
+
+        _manager.MarkEntityTombstoned(
+            ship,
+            "Expended in Colonization",
+            new System.Collections.Generic.Dictionary<string, object> { ["colony"] = "Vega" }
+        );
+
+        AssertThat(_manager.ResolveEntity("ship:dead1")).IsNull();
+        var tombstone = _manager.GetTombstone("ship:dead1");
+        AssertThat(tombstone).IsNotNull();
+        AssertThat(tombstone.DisplayName).IsEqual("ISS Endeavor");
+        AssertThat(tombstone.Status).IsEqual("Expended in Colonization");
+        AssertThat(tombstone.SummaryJson).Contains("Vega");
+    }
 }

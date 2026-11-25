@@ -145,6 +145,10 @@ public class ChronicleEventBuilder
         // Dispatch to ChronicleManager if available
         if (ChronicleManager.Instance != null)
         {
+            foreach (var entity in _involvedEntities.Values)
+            {
+                ChronicleManager.Instance.RegisterEntity(entity, currentTick);
+            }
             ChronicleManager.Instance.RecordEvent(record);
         }
 

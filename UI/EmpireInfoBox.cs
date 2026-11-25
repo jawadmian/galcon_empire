@@ -21,8 +21,13 @@ public partial class EmpireInfoBox : Control
 
     private VBoxContainer _starsList;
     private VBoxContainer _buildQueueList;
+    private VBoxContainer _chronicleList;
+    private Button _chronicleFilterButton;
+    private ChronicleViewMode _chronicleViewMode = ChronicleViewMode.CondensedHigh;
     private int _lastBuildQueueHash = -1;
     private int _lastStarsCount = -1;
+    private int _lastChronicleCount = -1;
+    private long _lastChronicleLatestId = -1;
 
     // Window dragging
     private bool _isDraggingWindow = false;
@@ -64,6 +69,13 @@ public partial class EmpireInfoBox : Control
 
         _starsList = GetNodeOrNull<VBoxContainer>("%StarsList");
         _buildQueueList = GetNodeOrNull<VBoxContainer>("%BuildQueueList");
+        _chronicleList = GetNodeOrNull<VBoxContainer>("%ChronicleList");
+        _chronicleFilterButton = GetNodeOrNull<Button>("%ChronicleFilterButton");
+        ChroniclePanelHelper.ConfigureFilterButton(
+            _chronicleFilterButton,
+            _chronicleViewMode,
+            OnChronicleFilterPressed
+        );
 
         if (_closeButton != null)
         {
@@ -86,6 +98,14 @@ public partial class EmpireInfoBox : Control
         }
     }
 
+    public override void _Input(InputEvent @event)
+    {
+        if (_isDraggingWindow && @event is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Left && !mb.Pressed)
+        {
+            _isDraggingWindow = false;
+        }
+    }
+
     public override void _GuiInput(InputEvent @event)
     {
         if (@event is InputEventMouseButton mb)
@@ -94,6 +114,8 @@ public partial class EmpireInfoBox : Control
             {
                 if (mb.Pressed)
                 {
+                    if (ChroniclePanelHelper.IsPointerOverChronicle(_chronicleList))
+                        return;
                     _isDraggingWindow = true;
                     _dragOffset = GetGlobalMousePosition() - GlobalPosition;
                 }
@@ -137,6 +159,7 @@ public partial class EmpireInfoBox : Control
             UpdateRealtimeMetrics();
             PopulateBuildQueue();
             PopulateStarsList();
+            PopulateChronicle();
         }
     }
 
@@ -180,6 +203,8 @@ public partial class EmpireInfoBox : Control
             return null;
         }
 
+        Instance = infoBox;
+
         // Prefer adding to an active CanvasLayer so the HUD doesn't translate with the camera
         if (contextNode != null && contextNode.IsInsideTree())
         {
@@ -204,6 +229,8 @@ public partial class EmpireInfoBox : Control
     public void DisplayEmpire(Empire empire)
     {
         _currentEmpire = empire;
+        _lastChronicleCount = -1;
+        _lastChronicleLatestId = -1;
         if (IsNodeReady() || _nameLabel != null)
         {
             RefreshDisplay();
@@ -244,6 +271,9 @@ public partial class EmpireInfoBox : Control
 
         // Build Queue
         PopulateBuildQueue();
+
+        // Empire Chronicle
+        PopulateChronicle();
     }
 
     private void UpdateRealtimeMetrics()
@@ -411,6 +441,39 @@ public partial class EmpireInfoBox : Control
             itemHBox.AddChild(projBtn);
             _buildQueueList.AddChild(itemHBox);
         }
+    }
+
+    private void OnChronicleFilterPressed()
+    {
+        SetChronicleViewMode(ChronicleFilter.NextViewMode(_chronicleViewMode));
+    }
+
+    public void SetChronicleViewMode(ChronicleViewMode mode)
+    {
+        _chronicleViewMode = mode;
+        _lastChronicleCount = -1;
+        _lastChronicleLatestId = -1;
+        if (_chronicleFilterButton != null)
+        {
+            _chronicleFilterButton.Text = ChronicleFilter.GetViewModeLabel(_chronicleViewMode);
+        }
+        PopulateChronicle();
+    }
+
+    private void PopulateChronicle()
+    {
+        if (_currentEmpire == null || !GodotObject.IsInstanceValid(_currentEmpire))
+            return;
+
+        ChroniclePanelHelper.PopulateChronicle(
+            _chronicleList,
+            _currentEmpire,
+            _chronicleViewMode,
+            "• No recorded empire events yet",
+            this,
+            ref _lastChronicleCount,
+            ref _lastChronicleLatestId
+        );
     }
 
     private void OnStarClicked(Star star)
