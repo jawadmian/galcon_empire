@@ -69,8 +69,12 @@ public partial class Empire : Node, IChronicleEntity
     public Dictionary<ResourceType, long> ResourceStockpiles { get; private set; } =
         new Dictionary<ResourceType, long>();
 
-    // Current production per tick for the empire
+    // Current net production per tick for the empire (gross production minus upkeep)
     public Dictionary<ResourceType, long> ProductionPerTick { get; private set; } =
+        new Dictionary<ResourceType, long>();
+
+    // Ongoing per-tick upkeep across all ships and installed improvements
+    public Dictionary<ResourceType, long> UpkeepPerTick { get; private set; } =
         new Dictionary<ResourceType, long>();
 
     // Classes to manage the build system
@@ -84,7 +88,8 @@ public partial class Empire : Node, IChronicleEntity
     {
         public ImprovementResource Improvement { get; set; }
         public Star TargetStar { get; set; }
-        public int RemainingTicks { get; set; }
+        public int StartTick { get; set; }
+        public int CompletionTick { get; set; }
     }
 
     public class ConstructionDisplayInfo
@@ -112,6 +117,8 @@ public partial class Empire : Node, IChronicleEntity
 
     private readonly List<BuildRequest> _buildRequests = new List<BuildRequest>();
     private readonly List<BuildQueueItem> _buildQueue = new List<BuildQueueItem>();
+    private readonly PriorityQueue<BuildQueueItem, int> _buildCompletionHeap = new PriorityQueue<BuildQueueItem, int>();
+    private int _lastProcessedTick = 0;
     private readonly List<ShipBuildRequest> _shipBuildRequests = new List<ShipBuildRequest>();
     private readonly List<ShipBuildQueueItem> _shipBuildQueue = new List<ShipBuildQueueItem>();
     private readonly List<Fleet> _fleets = new List<Fleet>();
@@ -131,12 +138,13 @@ public partial class Empire : Node, IChronicleEntity
         var list = new List<ConstructionDisplayInfo>();
         foreach (var item in _buildQueue)
         {
+            int remaining = Math.Max(0, item.CompletionTick - _lastProcessedTick);
             list.Add(new ConstructionDisplayInfo
             {
                 Improvement = item.Improvement,
                 TargetStar = item.TargetStar,
-                RemainingTicks = item.RemainingTicks,
-                TotalTicks = item.Improvement?.BuildTime ?? item.RemainingTicks,
+                RemainingTicks = remaining,
+                TotalTicks = item.Improvement?.BuildTime ?? remaining,
                 IsUnderConstruction = true
             });
         }
@@ -160,6 +168,7 @@ public partial class Empire : Node, IChronicleEntity
         {
             ResourceStockpiles[type] = 0;
             ProductionPerTick[type] = 0;
+            UpkeepPerTick[type] = 0;
         }
     }
 
@@ -180,6 +189,7 @@ public partial class Empire : Node, IChronicleEntity
         {
             ResourceStockpiles[type] = 0; // Start with 0 of each resource
             ProductionPerTick[type] = 0;
+            UpkeepPerTick[type] = 0;
         }
 
         // Register default advisors
@@ -269,7 +279,7 @@ public partial class Empire : Node, IChronicleEntity
         return true;
     }
 
-    private void StartConstruction(BuildRequest request)
+    private void StartConstruction(BuildRequest request, int currentTick)
     {
         // Deduct resources
         foreach (var cost in request.Improvement.BuildCost)
@@ -289,15 +299,17 @@ public partial class Empire : Node, IChronicleEntity
             .WithMetadata("build_time", request.Improvement.BuildTime)
             .Record();
 
-        // Add to build queue
-        _buildQueue.Add(
-            new BuildQueueItem
-            {
-                Improvement = request.Improvement,
-                TargetStar = request.TargetStar,
-                RemainingTicks = request.Improvement.BuildTime,
-            }
-        );
+        // Schedule completion on the event min-heap (BuildTime == 1 completes on currentTick)
+        int completionTick = currentTick + Math.Max(0, request.Improvement.BuildTime - 1);
+        var queueItem = new BuildQueueItem
+        {
+            Improvement = request.Improvement,
+            TargetStar = request.TargetStar,
+            StartTick = currentTick,
+            CompletionTick = completionTick,
+        };
+        _buildQueue.Add(queueItem);
+        _buildCompletionHeap.Enqueue(queueItem, completionTick);
     }
 
     public bool IsImprovementPending(ImprovementResource improvement, Star star)
@@ -637,17 +649,223 @@ public partial class Empire : Node, IChronicleEntity
         return fleet;
     }
 
+    /// <summary>
+    /// Scraps an active ship, refunding a fraction of its construction resource cost,
+    /// removing it from its fleet (disbanding empty fleets), and logging to the Chronicle.
+    /// </summary>
+    public bool ScrapShip(Ship ship, float refundFraction = 0.25f)
+    {
+        if (ship == null)
+            return false;
+
+        Fleet ownerFleet = ship.CurrentFleet;
+        if (ownerFleet == null || !GodotObject.IsInstanceValid(ownerFleet) || !_fleets.Contains(ownerFleet))
+        {
+            ownerFleet = null;
+            foreach (var f in _fleets)
+            {
+                if (f == null || !GodotObject.IsInstanceValid(f))
+                    continue;
+                foreach (var s in f.Ships)
+                {
+                    if (s == ship)
+                    {
+                        ownerFleet = f;
+                        break;
+                    }
+                }
+                if (ownerFleet != null)
+                    break;
+            }
+        }
+
+        if (ownerFleet == null)
+            return false;
+
+        if (refundFraction > 0f && ship.Design?.ResourceCosts != null)
+        {
+            foreach (var kvp in ship.Design.ResourceCosts)
+            {
+                if (kvp.Key.IsStockpileable() && kvp.Value > 0)
+                {
+                    ResourceStockpiles[kvp.Key] += Mathf.FloorToInt(kvp.Value * refundFraction);
+                }
+            }
+        }
+
+        ownerFleet.RemoveShip(ship);
+
+        ChronicleEvent.Create(EventCategory.Economic, "Ship Scrapped", EventPriority.Normal)
+            .Involving(this, isPrimary: true)
+            .Involving(ownerFleet)
+            .Involving(ship)
+            .WithTemplate("{empire} scrapped {ship} from {fleet} to reduce upkeep.")
+            .WithMetadata("ship_id", ship.ShipId)
+            .Record();
+
+        ChronicleManager.Instance?.MarkEntityTombstoned(
+            ship,
+            "Scrapped",
+            new Dictionary<string, object>
+            {
+                ["class"] = ship.ClassName,
+                ["empire"] = EmpireName ?? "Unknown",
+            }
+        );
+
+        if (ownerFleet.IsEmpty)
+        {
+            ownerFleet.Disband();
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Scraps an installed improvement on an owned star, refunding a fraction of its build cost.
+    /// </summary>
+    public bool ScrapImprovement(Star star, ImprovementResource improvement, float refundFraction = 0.25f)
+    {
+        if (star == null || improvement == null || !_ownedStars.Contains(star))
+            return false;
+
+        if (!star.RemoveImprovement(improvement))
+            return false;
+
+        if (refundFraction > 0f && improvement.BuildCost != null)
+        {
+            foreach (var kvp in improvement.BuildCost)
+            {
+                if (kvp.Key.IsStockpileable() && kvp.Value > 0)
+                {
+                    ResourceStockpiles[kvp.Key] += Mathf.FloorToInt(kvp.Value * refundFraction);
+                }
+            }
+        }
+
+        ChronicleEvent.Create(EventCategory.Economic, "Facility Scrapped", EventPriority.Normal)
+            .Involving(this, isPrimary: true)
+            .Involving(star)
+            .WithTemplate("{empire} decommissioned [b]{improvement}[/b] on {star} to reduce upkeep.")
+            .WithArg("improvement", improvement.ImprovementName)
+            .Record();
+
+        return true;
+    }
+
+    /// <summary>
+    /// Returns the ship with the highest total upkeep cost (preferring idle ships first).
+    /// </summary>
+    public Ship GetMostExpensiveScrapCandidateShip()
+    {
+        Ship bestIdle = null;
+        long bestIdleCost = -1;
+        Ship bestAny = null;
+        long bestAnyCost = -1;
+
+        foreach (var fleet in _fleets)
+        {
+            if (fleet == null || !GodotObject.IsInstanceValid(fleet) || fleet.IsQueuedForDeletion())
+                continue;
+
+            foreach (var ship in fleet.Ships)
+            {
+                if (ship == null)
+                    continue;
+
+                long totalUpkeep = 0;
+                foreach (var kvp in ship.GetUpkeepCost())
+                    totalUpkeep += kvp.Value;
+
+                if (fleet.IsIdle && totalUpkeep > bestIdleCost)
+                {
+                    bestIdleCost = totalUpkeep;
+                    bestIdle = ship;
+                }
+                if (totalUpkeep > bestAnyCost)
+                {
+                    bestAnyCost = totalUpkeep;
+                    bestAny = ship;
+                }
+            }
+        }
+
+        return bestIdle ?? bestAny;
+    }
+
+    /// <summary>
+    /// Returns the installed improvement with the highest total upkeep cost across owned stars.
+    /// When <paramref name="preferNonShipyard"/> is true (e.g. freeing a slot), avoids scrapping shipyards
+    /// if any non-shipyard facility exists.
+    /// </summary>
+    public (Star star, ImprovementResource improvement) GetMostExpensiveScrapCandidateImprovement(bool preferNonShipyard = false)
+    {
+        Star bestStar = null;
+        ImprovementResource bestImp = null;
+        long bestCost = -1;
+
+        Star fallbackStar = null;
+        ImprovementResource fallbackImp = null;
+        long fallbackCost = -1;
+
+        foreach (var star in _ownedStars)
+        {
+            if (star == null || !GodotObject.IsInstanceValid(star) || star.Improvements == null)
+                continue;
+
+            foreach (var imp in star.Improvements)
+            {
+                if (imp == null)
+                    continue;
+
+                long totalUpkeep = 0;
+                foreach (var kvp in imp.GetUpkeepCost())
+                    totalUpkeep += kvp.Value;
+
+                bool isShipyard = imp.ResourceOutput != null
+                    && imp.ResourceOutput.ContainsKey(ResourceType.ShipyardProduction);
+
+                if (preferNonShipyard && isShipyard)
+                {
+                    if (totalUpkeep > fallbackCost)
+                    {
+                        fallbackCost = totalUpkeep;
+                        fallbackStar = star;
+                        fallbackImp = imp;
+                    }
+                    continue;
+                }
+
+                if (totalUpkeep > bestCost)
+                {
+                    bestCost = totalUpkeep;
+                    bestStar = star;
+                    bestImp = imp;
+                }
+            }
+        }
+
+        return bestImp != null ? (bestStar, bestImp) : (fallbackStar, fallbackImp);
+    }
+
     public void UpdateTick(int tickCount)
     {
-        // 1. Production Logic
+        _lastProcessedTick = tickCount;
+
+        // 1. Production & Upkeep Logic
         Dictionary<ResourceType, long> tickProduction = new Dictionary<ResourceType, long>();
+        Dictionary<ResourceType, long> tickUpkeep = new Dictionary<ResourceType, long>();
         foreach (ResourceType type in Enum.GetValues(typeof(ResourceType)))
         {
             tickProduction[type] = 0;
+            tickUpkeep[type] = 0;
         }
 
         foreach (Star star in _ownedStars)
         {
+            if (star == null || !GodotObject.IsInstanceValid(star))
+                continue;
+
             // Population-based output: +1 Ore/Money per 100 pop, but population CONSUMES Food (-1 per 100 pop)
             // offset by the star's natural BaseFoodProduction.
             int popResources = star.StarPopulation / 100;
@@ -670,18 +888,51 @@ public partial class Empire : Node, IChronicleEntity
             {
                 tickProduction[productionEntry.Key] += productionEntry.Value;
             }
+
+            if (star.Improvements != null)
+            {
+                foreach (var imp in star.Improvements)
+                {
+                    if (imp == null)
+                        continue;
+                    foreach (var upkeepEntry in imp.GetUpkeepCost())
+                    {
+                        tickUpkeep[upkeepEntry.Key] += upkeepEntry.Value;
+                    }
+                }
+            }
         }
 
-        foreach (var productionEntry in tickProduction)
+        foreach (Fleet fleet in _fleets)
         {
-            if (productionEntry.Key.IsStockpileable())
+            if (fleet == null || !GodotObject.IsInstanceValid(fleet) || fleet.IsQueuedForDeletion())
+                continue;
+
+            foreach (Ship ship in fleet.Ships)
             {
-                ResourceStockpiles[productionEntry.Key] = Math.Max(
+                if (ship == null)
+                    continue;
+                foreach (var upkeepEntry in ship.GetUpkeepCost())
+                {
+                    tickUpkeep[upkeepEntry.Key] += upkeepEntry.Value;
+                }
+            }
+        }
+
+        foreach (ResourceType type in Enum.GetValues(typeof(ResourceType)))
+        {
+            long upkeep = tickUpkeep[type];
+            UpkeepPerTick[type] = upkeep;
+            long netProduction = tickProduction[type] - upkeep;
+
+            if (type.IsStockpileable())
+            {
+                ResourceStockpiles[type] = Math.Max(
                     0,
-                    ResourceStockpiles[productionEntry.Key] + productionEntry.Value
+                    ResourceStockpiles[type] + netProduction
                 );
             }
-            ProductionPerTick[productionEntry.Key] = productionEntry.Value;
+            ProductionPerTick[type] = netProduction;
         }
 
         // 2. Advisor Recommendations
@@ -696,36 +947,31 @@ public partial class Empire : Node, IChronicleEntity
             var request = _buildRequests[i];
             if (CanAfford(request.Improvement))
             {
-                StartConstruction(request);
+                StartConstruction(request, tickCount);
                 _buildRequests.RemoveAt(i);
             }
         }
 
-        // 4. Process Improvement Build Queue
-        for (int i = _buildQueue.Count - 1; i >= 0; i--)
+        // 4. Process Improvement Completions (event-based head-only min-heap check)
+        while (_buildCompletionHeap.TryPeek(out var item, out int completionTick) && completionTick <= tickCount)
         {
-            var item = _buildQueue[i];
-            item.RemainingTicks--;
+            _buildCompletionHeap.Dequeue();
+            _buildQueue.Remove(item);
 
-            if (item.RemainingTicks <= 0)
-            {
-                GD.Print(
-                    $"Empire {EmpireName} completed construction of {item.Improvement.ImprovementName} at {item.TargetStar.StarName}."
-                );
-                item.TargetStar.AddImprovement(item.Improvement);
+            GD.Print(
+                $"Empire {EmpireName} completed construction of {item.Improvement.ImprovementName} at {item.TargetStar.StarName}."
+            );
+            item.TargetStar.AddImprovement(item.Improvement);
 
-                EventPriority facilityPriority = item.Improvement.ResourceOutput.ContainsKey(ResourceType.ShipyardProduction)
-                    ? EventPriority.High
-                    : EventPriority.Normal;
-                ChronicleEvent.Create(EventCategory.Economic, "Facility Completed", facilityPriority)
-                    .Involving(this, isPrimary: true)
-                    .Involving(item.TargetStar)
-                    .WithTemplate("{empire} completed construction of [b]{improvement}[/b] on {star}.")
-                    .WithArg("improvement", item.Improvement.ImprovementName)
-                    .Record();
-
-                _buildQueue.RemoveAt(i);
-            }
+            EventPriority facilityPriority = item.Improvement.ResourceOutput.ContainsKey(ResourceType.ShipyardProduction)
+                ? EventPriority.High
+                : EventPriority.Normal;
+            ChronicleEvent.Create(EventCategory.Economic, "Facility Completed", facilityPriority)
+                .Involving(this, isPrimary: true)
+                .Involving(item.TargetStar)
+                .WithTemplate("{empire} completed construction of [b]{improvement}[/b] on {star}.")
+                .WithArg("improvement", item.Improvement.ImprovementName)
+                .Record();
         }
 
         // 5. Process Ship Build Requests (1 active ship per star shipyard at a time)

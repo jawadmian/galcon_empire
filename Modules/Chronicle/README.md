@@ -68,6 +68,7 @@ ChronicleManager.TickProvider = () => MyGameClock.CurrentTick;
 - **Default database path**: `res://saves/chronicle.db` (`ResetOnStart` defaults to `false` so scene reloads do not wipe history).
 - **GdUnit4 test isolation**: When running under GdUnit4, `ChronicleManager` automatically switches to `res://saves/chronicle_test.db` and resets it.
 - **New game reset**: Call `ChronicleManager.Instance?.ResetWorldState();` when starting a fresh campaign/run.
+- **Per-tick SQLite batching (optional)**: Wrap high-frequency tick loops in `ChronicleManager.Instance?.BeginBatch()` / `EndBatch()` so all events and entity snapshots in a tick commit in a single SQLite transaction.
 - **Git**: Add database artifacts to `.gitignore` so local playtest logs aren't committed:
   ```gitignore
   saves/*.db

@@ -15,7 +15,19 @@ public class GrowResourceGoal : GoapGoal
     public override bool IsValid(Blackboard currentBlackboard)
     {
         int availableSlots = currentBlackboard.GetValue<int>("AvailableBuildingSlots", 1);
-        return availableSlots > 0;
+        if (availableSlots > 0)
+            return true;
+
+        // When all building slots are full, only allow scrapping a facility to make room
+        // for critical Food survival (prevents flip-flopping between Ore/Money facilities).
+        if (_targetResource == ResourceType.Food)
+        {
+            long foodProd = currentBlackboard.GetValue<long>($"Production_{ResourceType.Food}", 0);
+            bool canScrap = currentBlackboard.GetValue<bool>("HasScrappableImprovement", false);
+            return canScrap && foodProd <= 0;
+        }
+
+        return false;
     }
 
     public override bool IsAchieved(Blackboard state)

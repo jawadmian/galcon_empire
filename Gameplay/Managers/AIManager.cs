@@ -73,31 +73,39 @@ public partial class AIManager : Node
 
     private void OnTickUpdate(int value)
     {
-        // A new day has started, queue all advisors for an update
+        // Queue a full pass over all advisors without resetting the round-robin cursor,
+        // so higher simulation speeds (8x/16x) and 50+ empires never starve later advisors.
         _advisorsToUpdateThisTick = _registeredAdvisors.Count;
-        _currentAdvisorIndex = 0;
+        if (_registeredAdvisors.Count > 0 && _currentAdvisorIndex >= _registeredAdvisors.Count)
+        {
+            _currentAdvisorIndex %= _registeredAdvisors.Count;
+        }
     }
 
     public override void _Process(double delta)
     {
         if (_advisorsToUpdateThisTick <= 0 || _registeredAdvisors.Count == 0) return;
 
-        // Process a chunk of advisors to spread out the CPU load (Time Slicing)
+        // Scale per-frame budget with empire count and speed so all empires keep pace
+        float speedMult = TickManager.HasInstance ? Mathf.Max(1.0f, TickManager.Instance.SpeedMultiplier) : 1.0f;
+        int scaledBudget = Mathf.CeilToInt(_registeredAdvisors.Count * speedMult / 30.0f);
+        int frameBudget = Mathf.Max(AdvisorsToUpdatePerFrame, scaledBudget);
+
         int updatesThisFrame = 0;
-        while (updatesThisFrame < AdvisorsToUpdatePerFrame && _advisorsToUpdateThisTick > 0)
+        while (updatesThisFrame < frameBudget && _advisorsToUpdateThisTick > 0)
         {
             if (_currentAdvisorIndex >= _registeredAdvisors.Count)
-                break;
+                _currentAdvisorIndex = 0;
 
             var advisor = _registeredAdvisors[_currentAdvisorIndex];
-            
+
             // Only update if it's not currently running an async plan
             if (!advisor.IsPlanning)
             {
                 advisor.UpdateAI();
             }
 
-            _currentAdvisorIndex++;
+            _currentAdvisorIndex = (_currentAdvisorIndex + 1) % _registeredAdvisors.Count;
             _advisorsToUpdateThisTick--;
             updatesThisFrame++;
         }

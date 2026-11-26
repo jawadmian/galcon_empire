@@ -23,8 +23,9 @@ public partial class TickManager : Node
 
     public const float DefaultTickInterval = 1.0f;
     public const float MinSpeedMultiplier = 0.25f;
-    public const float MaxSpeedMultiplier = 4.0f;
-    private static readonly float[] SpeedSteps = { 0.25f, 0.5f, 1.0f, 2.0f, 4.0f };
+    public const float MaxSpeedMultiplier = 16.0f;
+    public const int MaxTicksPerFrame = 8;
+    private static readonly float[] SpeedSteps = { 0.25f, 0.5f, 1.0f, 2.0f, 4.0f, 8.0f, 16.0f };
 
     public int tickCount = 0;
     public float TickUpdateInterval { get; set; } = DefaultTickInterval; // 1 tick (1 month) per second at 1x speed
@@ -147,20 +148,35 @@ public partial class TickManager : Node
 
         _tickUpdateTimer += dt;
 
-        // Check if enough time has passed to perform the population update.
-        if (_tickUpdateTimer >= TickUpdateInterval)
+        // Process up to MaxTicksPerFrame ticks per frame so high speeds (8x/16x) stay accurate
+        int ticksProcessed = 0;
+        while (_tickUpdateTimer >= TickUpdateInterval && ticksProcessed < MaxTicksPerFrame)
         {
             tickCount++;
-
-            // Update starmanager tick if present in the scene tree
-            if (StarManager.HasInstance)
-            {
-                StarManager.Instance.UpdateTick();
-            }
-
-            // Subtract the processed interval from the timer to carry over any remainder.
+            ticksProcessed++;
             _tickUpdateTimer -= TickUpdateInterval;
-            EmitSignal(SignalName.TickUpdateSignal, tickCount);
+
+            ChronicleManager.Instance?.BeginBatch();
+            try
+            {
+                // Update starmanager tick if present in the scene tree
+                if (StarManager.HasInstance)
+                {
+                    StarManager.Instance.UpdateTick();
+                }
+
+                EmitSignal(SignalName.TickUpdateSignal, tickCount);
+            }
+            finally
+            {
+                ChronicleManager.Instance?.EndBatch();
+            }
+        }
+
+        // Prevent unbounded timer debt after long pauses or breakpoints
+        if (_tickUpdateTimer > TickUpdateInterval)
+        {
+            _tickUpdateTimer = TickUpdateInterval;
         }
     }
 }

@@ -62,8 +62,8 @@ public class Blackboard
         int hash = 0;
         foreach (var kvp in _data)
         {
-            int kvpHash = (kvp.Key.GetHashCode() * 397) ^ (kvp.Value?.GetHashCode() ?? 0);
-            hash ^= kvpHash; // XOR is order-independent
+            int kvpHash = System.HashCode.Combine(kvp.Key, kvp.Value);
+            hash ^= kvpHash; // XOR across entries is order-independent
         }
         return hash;
     }

@@ -313,19 +313,22 @@ public partial class EmpireInfoBox : Control
 
         if (_foodValueLabel != null)
         {
-            _foodValueLabel.Text = $"{foodStockpile:N0} (+{foodProd:N0}/mo)";
+            _foodValueLabel.Text = $"{foodStockpile:N0} ({FormatSignedDelta(foodProd)}/mo)";
         }
 
         if (_oreValueLabel != null)
         {
-            _oreValueLabel.Text = $"{oreStockpile:N0} (+{oreProd:N0}/mo)";
+            _oreValueLabel.Text = $"{oreStockpile:N0} ({FormatSignedDelta(oreProd)}/mo)";
         }
 
         if (_creditsValueLabel != null)
         {
-            _creditsValueLabel.Text = $"{moneyStockpile:N0} (+{moneyProd:N0}/mo)";
+            _creditsValueLabel.Text = $"{moneyStockpile:N0} ({FormatSignedDelta(moneyProd)}/mo)";
         }
     }
+
+    private static string FormatSignedDelta(long value) =>
+        value >= 0 ? $"+{value:N0}" : $"{value:N0}";
 
     private void PopulateStarsList()
     {

@@ -166,4 +166,86 @@ public partial class EmpireTests
         AssertThat(empire.IsImprovementPending(imp1, star)).IsTrue();
         AssertThat(empire.IsImprovementPending(imp2, star)).IsFalse();
     }
+
+    [TestCase]
+    public void TestShipFivePercentUpkeepAndScrapping()
+    {
+        var empire = CreateTestEmpire();
+        var star = empire.HomeStar;
+        star.BaseFoodProduction = 0;
+
+        var design = new ShipDesignResource
+        {
+            DesignId = "test_frigate",
+            DesignName = "Frigate",
+            ProductionCost = 100,
+        };
+        design.ResourceCosts[ResourceType.Ore] = 1000;
+        design.ResourceCosts[ResourceType.Money] = 400;
+
+        var ship = new Ship(design) { ShipName = "Defiant" };
+        var fleet = new Fleet();
+        fleet.Initialize(empire, star, ship);
+        empire.RegisterFleet(fleet);
+
+        empire.ResourceStockpiles[ResourceType.Ore] = 200;
+        empire.ResourceStockpiles[ResourceType.Money] = 100;
+
+        // 5% of 1000 Ore = 50 Ore/tick; 5% of 400 Money = 20 Money/tick
+        empire.UpdateTick(1);
+        AssertThat(empire.UpkeepPerTick[ResourceType.Ore]).IsEqual(50L);
+        AssertThat(empire.UpkeepPerTick[ResourceType.Money]).IsEqual(20L);
+        AssertThat(empire.ProductionPerTick[ResourceType.Ore]).IsEqual(-50L);
+        AssertThat(empire.ProductionPerTick[ResourceType.Money]).IsEqual(-20L);
+        AssertThat(empire.ResourceStockpiles[ResourceType.Ore]).IsEqual(150L);
+        AssertThat(empire.ResourceStockpiles[ResourceType.Money]).IsEqual(80L);
+
+        // Scrapping refunds 25% of construction cost (250 Ore, 100 Money) and removes upkeep
+        bool scrapped = empire.ScrapShip(ship);
+        AssertThat(scrapped).IsTrue();
+        AssertThat(empire.ResourceStockpiles[ResourceType.Ore]).IsEqual(400L);
+        AssertThat(empire.ResourceStockpiles[ResourceType.Money]).IsEqual(180L);
+        AssertThat(empire.OwnedFleets.Count).IsEqual(0);
+
+        empire.UpdateTick(2);
+        AssertThat(empire.UpkeepPerTick[ResourceType.Ore]).IsEqual(0L);
+        AssertThat(empire.UpkeepPerTick[ResourceType.Money]).IsEqual(0L);
+    }
+
+    [TestCase]
+    public void TestImprovementUpkeepAndScrapping()
+    {
+        var empire = CreateTestEmpire();
+        var star = empire.HomeStar;
+        star.BaseFoodProduction = 0;
+
+        var mine = new ImprovementResource
+        {
+            ImprovementName = "Deep Mine",
+            BuildTime = 1,
+            UpkeepRate = 0.05f,
+        };
+        mine.BuildCost[ResourceType.Money] = 1000;
+        mine.ResourceOutput[ResourceType.Ore] = 200;
+        star.AddImprovement(mine);
+
+        empire.ResourceStockpiles[ResourceType.Money] = 200;
+        empire.UpdateTick(1);
+
+        // 5% of 1000 Money = 50 Money/tick upkeep; +200 Ore/tick output
+        AssertThat(empire.UpkeepPerTick[ResourceType.Money]).IsEqual(50L);
+        AssertThat(empire.ProductionPerTick[ResourceType.Money]).IsEqual(-50L);
+        AssertThat(empire.ProductionPerTick[ResourceType.Ore]).IsEqual(200L);
+        AssertThat(empire.ResourceStockpiles[ResourceType.Money]).IsEqual(150L);
+
+        // Scrapping removes improvement, stops upkeep & output, and refunds 25% of BuildCost (250 Money)
+        bool scrapped = empire.ScrapImprovement(star, mine);
+        AssertThat(scrapped).IsTrue();
+        AssertThat(star.Improvements.Count).IsEqual(0);
+        AssertThat(empire.ResourceStockpiles[ResourceType.Money]).IsEqual(400L);
+
+        empire.UpdateTick(2);
+        AssertThat(empire.UpkeepPerTick[ResourceType.Money]).IsEqual(0L);
+        AssertThat(empire.ProductionPerTick[ResourceType.Ore]).IsEqual(0L);
+    }
 }

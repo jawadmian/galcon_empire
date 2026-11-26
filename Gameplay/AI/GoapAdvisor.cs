@@ -43,10 +43,13 @@ public class GoapAdvisor : IAdvisor
         }
 
         AvailableActions.Add(new ColonizeAction());
+        AvailableActions.Add(new ScrapShipAction());
+        AvailableActions.Add(new ScrapImprovementAction());
 
-        // Add goals: shipyard construction, expansion, and stockpileable resource growth
+        // Add goals: shipyard construction, expansion, deficit reduction, and stockpileable resource growth
         Goals.Add(new BuildShipyardGoal());
         Goals.Add(new ColonizeStarGoal());
+        Goals.Add(new ReduceDeficitGoal());
 
         // Dynamically create a GrowResourceGoal for every stockpileable ResourceType
         foreach (ResourceType type in System.Enum.GetValues(typeof(ResourceType)))
@@ -86,7 +89,55 @@ public class GoapAdvisor : IAdvisor
         {
             State.SetValue($"Production_{kvp.Key}", kvp.Value);
         }
+        foreach (var kvp in _empire.UpkeepPerTick)
+        {
+            State.SetValue($"TotalUpkeep_{kvp.Key}", kvp.Value);
+        }
         State.SetValue("OwnedStarsCount", _empire.OwnedStars.Count);
+
+        int shipCount = 0;
+        foreach (var fleet in _empire.OwnedFleets)
+        {
+            if (fleet != null && GodotObject.IsInstanceValid(fleet) && !fleet.IsQueuedForDeletion())
+            {
+                shipCount += fleet.Ships.Count;
+            }
+        }
+        State.SetValue("ShipCount", shipCount);
+        State.SetValue("HasScrappableShip", shipCount > 0);
+
+        Ship scrapShipCandidate = _empire.GetMostExpensiveScrapCandidateShip();
+        var scrapShipUpkeep = scrapShipCandidate?.GetUpkeepCost();
+        foreach (ResourceType type in System.Enum.GetValues(typeof(ResourceType)))
+        {
+            if (!type.IsStockpileable())
+                continue;
+            long val = scrapShipUpkeep != null && scrapShipUpkeep.TryGetValue(type, out int u) ? u : 0;
+            State.SetValue($"ScrappableShipUpkeep_{type}", val);
+        }
+
+        int installedImprovementsCount = 0;
+        foreach (var star in _empire.OwnedStars)
+        {
+            if (star?.Improvements != null)
+            {
+                installedImprovementsCount += star.Improvements.Count;
+            }
+        }
+        State.SetValue("InstalledImprovementsCount", installedImprovementsCount);
+        State.SetValue("HasScrappableImprovement", installedImprovementsCount > 0);
+
+        var (_, scrapImpCandidate) = _empire.GetMostExpensiveScrapCandidateImprovement();
+        var scrapImpUpkeep = scrapImpCandidate?.GetUpkeepCost();
+        foreach (ResourceType type in System.Enum.GetValues(typeof(ResourceType)))
+        {
+            if (!type.IsStockpileable())
+                continue;
+            long uVal = scrapImpUpkeep != null && scrapImpUpkeep.TryGetValue(type, out int u) ? u : 0;
+            long oVal = scrapImpCandidate?.ResourceOutput != null && scrapImpCandidate.ResourceOutput.TryGetValue(type, out int o) ? o : 0;
+            State.SetValue($"ScrappableImprovementUpkeep_{type}", uVal);
+            State.SetValue($"ScrappableImprovementOutput_{type}", oVal);
+        }
 
         bool hasShipyard = _empire.HasShipyard();
         int shipyardCapacity = 0;

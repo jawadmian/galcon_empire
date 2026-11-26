@@ -271,7 +271,7 @@ public partial class FleetAndShipInfoBoxTest
         AssertThat(statusLabel.Text).IsEqual("SPEED: 1x");
         AssertThat(pauseBtn.Text).IsEqual("||");
 
-        // Double speed: 1x -> 2x -> 4x (capped at 4x)
+        // Double speed: 1x -> 2x -> 4x -> 8x -> 16x (capped at 16x)
         speedUpBtn.EmitSignal(Button.SignalName.Pressed);
         AssertThat(tm.SpeedMultiplier).IsEqual(2.0f);
         AssertThat(statusLabel.Text).IsEqual("SPEED: 2x");
@@ -279,12 +279,31 @@ public partial class FleetAndShipInfoBoxTest
         speedUpBtn.EmitSignal(Button.SignalName.Pressed);
         AssertThat(tm.SpeedMultiplier).IsEqual(4.0f);
         AssertThat(statusLabel.Text).IsEqual("SPEED: 4x");
+
+        speedUpBtn.EmitSignal(Button.SignalName.Pressed);
+        AssertThat(tm.SpeedMultiplier).IsEqual(8.0f);
+        AssertThat(statusLabel.Text).IsEqual("SPEED: 8x");
+
+        speedUpBtn.EmitSignal(Button.SignalName.Pressed);
+        AssertThat(tm.SpeedMultiplier).IsEqual(16.0f);
+        AssertThat(statusLabel.Text).IsEqual("SPEED: 16x");
         AssertThat(speedUpBtn.Disabled).IsTrue();
 
         speedUpBtn.EmitSignal(Button.SignalName.Pressed);
-        AssertThat(tm.SpeedMultiplier).IsEqual(4.0f);
+        AssertThat(tm.SpeedMultiplier).IsEqual(16.0f);
 
-        // Halve speed: 4x -> 2x -> 1x -> 0.5x -> 0.25x (capped at 0.25x)
+        // Multi-tick accumulator advances multiple ticks in a single frame at 16x
+        var isolatedTm = new TickManager();
+        isolatedTm.SetSpeedMultiplier(16.0f);
+        isolatedTm._Process(0.20); // 0.20s / 0.0625s = 3 ticks
+        AssertThat(isolatedTm.tickCount).IsEqual(3);
+        isolatedTm.Free();
+
+        // Halve speed: 16x -> 8x -> 4x -> 2x -> 1x -> 0.5x -> 0.25x (capped at 0.25x)
+        slowDownBtn.EmitSignal(Button.SignalName.Pressed);
+        AssertThat(tm.SpeedMultiplier).IsEqual(8.0f);
+        slowDownBtn.EmitSignal(Button.SignalName.Pressed);
+        AssertThat(tm.SpeedMultiplier).IsEqual(4.0f);
         slowDownBtn.EmitSignal(Button.SignalName.Pressed);
         AssertThat(tm.SpeedMultiplier).IsEqual(2.0f);
         slowDownBtn.EmitSignal(Button.SignalName.Pressed);

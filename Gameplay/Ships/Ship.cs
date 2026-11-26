@@ -49,4 +49,9 @@ public class Ship : IChronicleEntity
     {
         return Design != null && Design.HasAbility(ability);
     }
+
+    public System.Collections.Generic.Dictionary<ResourceType, int> GetUpkeepCost()
+    {
+        return Design?.GetUpkeepCost() ?? new System.Collections.Generic.Dictionary<ResourceType, int>();
+    }
 }

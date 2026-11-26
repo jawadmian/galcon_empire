@@ -457,4 +457,28 @@ public partial class ChronicleManagerTest
         AssertThat(tombstone.Status).IsEqual("Expended in Colonization");
         AssertThat(tombstone.SummaryJson).Contains("Vega");
     }
+
+    [TestCase]
+    public void TestBatchTransactionCommitsMultipleEvents()
+    {
+        _manager.BeginBatch();
+        _manager.BeginBatch(); // Nested batch must safely commit on outer EndBatch
+        for (int i = 1; i <= 20; i++)
+        {
+            _manager.RecordEvent(new ChronicleRecord
+            {
+                Tick = i,
+                Category = "Economic",
+                Priority = EventPriority.Low,
+                Title = $"Batch Event {i}",
+                RawText = $"Event {i}",
+                FormattedBbcode = $"Event {i}",
+                EntityTags = ",empire:batch,",
+            });
+        }
+        _manager.EndBatch();
+        _manager.EndBatch();
+
+        AssertThat(_manager.GetEventCount()).IsEqual(20);
+    }
 }

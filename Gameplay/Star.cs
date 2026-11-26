@@ -291,14 +291,33 @@ public partial class Star : Node2D, IChronicleEntity
 
     public void AddImprovement(ImprovementResource improvement)
     {
+        if (improvement == null)
+            return;
+
         GD.Print($"Adding improvement to star: {improvement.ImprovementName}");
         Improvements.Add(improvement);
+        RecalculateProduction();
+    }
 
+    public bool RemoveImprovement(ImprovementResource improvement)
+    {
+        if (improvement == null || !Improvements.Remove(improvement))
+            return false;
+
+        RecalculateProduction();
+        return true;
+    }
+
+    private void RecalculateProduction()
+    {
         // Recalculate star productions by resetting the map and summing up all improvements
         ProductionPerTick.Clear();
 
         foreach (ImprovementResource entry in Improvements)
         {
+            if (entry?.ResourceOutput == null)
+                continue;
+
             foreach (var kvp in entry.ResourceOutput)
             {
                 ResourceType type = kvp.Key;

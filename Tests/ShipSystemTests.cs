@@ -60,8 +60,8 @@ public partial class ShipSystemTests
         AssertThat(empire.ResourceStockpiles[ResourceType.ShipyardProduction]).IsEqual(0L);
         // ProductionPerTick reflects only the shipyard's 25 SPP, not raw population
         AssertThat(empire.ProductionPerTick[ResourceType.ShipyardProduction]).IsEqual(25L);
-        // Stockpileable resources still accumulate from population (50/tick * 3 = 150)
-        AssertThat(empire.ResourceStockpiles[ResourceType.Ore]).IsEqual(150L);
+        // Stockpileable resources accumulate from population minus shipyard upkeep: (50 - 20)/tick * 3 = 90
+        AssertThat(empire.ResourceStockpiles[ResourceType.Ore]).IsEqual(90L);
 
         empire.Free();
         star.Free();
@@ -83,10 +83,10 @@ public partial class ShipSystemTests
         AssertThat(queued).IsTrue();
         AssertThat(empire.HasShipPending(ShipAbility.Colonize)).IsTrue();
 
-        // Tick 1: starts construction, deducts 1500 Ore (500 left) + 150 Ore from 15,000 pop = 650
+        // Tick 1: starts construction, deducts 1500 Ore / 500 Money, +150 pop - 20/10 shipyard upkeep = 630 Ore, 640 Money
         empire.UpdateTick(1);
-        AssertThat(empire.ResourceStockpiles[ResourceType.Ore]).IsEqual(650L);
-        AssertThat(empire.ResourceStockpiles[ResourceType.Money]).IsEqual(650L);
+        AssertThat(empire.ResourceStockpiles[ResourceType.Ore]).IsEqual(630L);
+        AssertThat(empire.ResourceStockpiles[ResourceType.Money]).IsEqual(640L);
         AssertThat(empire.ShipBuildQueue.Count).IsEqual(1);
         AssertThat(empire.OwnedFleets.Count).IsEqual(0);
 

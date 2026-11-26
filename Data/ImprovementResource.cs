@@ -24,6 +24,7 @@ public static class ResourceTypeExtensions
 }
 
 // This makes your custom resource type available in the Godot editor
+[Tool]
 [GlobalClass]
 public partial class ImprovementResource : Resource
 {
@@ -46,4 +47,43 @@ public partial class ImprovementResource : Resource
     [Export]
     public Dictionary<ResourceType, int> BuildCost { get; set; } =
         new Dictionary<ResourceType, int>();
+
+    /// <summary>
+    /// Optional explicit per-tick upkeep costs. When empty, upkeep is derived from
+    /// <see cref="BuildCost"/> multiplied by <see cref="UpkeepRate"/>.
+    /// </summary>
+    [Export]
+    public Dictionary<ResourceType, int> UpkeepCost { get; set; } =
+        new Dictionary<ResourceType, int>();
+
+    [Export]
+    public float UpkeepRate { get; set; } = 0.02f;
+
+    public System.Collections.Generic.Dictionary<ResourceType, int> GetUpkeepCost()
+    {
+        var result = new System.Collections.Generic.Dictionary<ResourceType, int>();
+        if (UpkeepCost != null && UpkeepCost.Count > 0)
+        {
+            foreach (var kvp in UpkeepCost)
+            {
+                if (kvp.Key.IsStockpileable() && kvp.Value > 0)
+                {
+                    result[kvp.Key] = kvp.Value;
+                }
+            }
+            return result;
+        }
+
+        if (UpkeepRate <= 0f || BuildCost == null)
+            return result;
+
+        foreach (var kvp in BuildCost)
+        {
+            if (kvp.Key.IsStockpileable() && kvp.Value > 0)
+            {
+                result[kvp.Key] = Mathf.Max(1, Mathf.RoundToInt(kvp.Value * UpkeepRate));
+            }
+        }
+        return result;
+    }
 }

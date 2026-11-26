@@ -55,6 +55,8 @@ public partial class ChronicleManager : Node
     public bool ResetOnStart { get; set; } = false;
 
     private SqliteConnection _dbConnection;
+    private SqliteTransaction _activeTransaction;
+    private int _batchDepth = 0;
     private readonly object _dbLock = new object();
 
     public static bool IsRunningTests()
@@ -255,6 +257,72 @@ public partial class ChronicleManager : Node
         }
     }
 
+    private SqliteCommand CreateCommand()
+    {
+        var cmd = _dbConnection.CreateCommand();
+        if (_activeTransaction != null)
+        {
+            cmd.Transaction = _activeTransaction;
+        }
+        return cmd;
+    }
+
+    /// <summary>
+    /// Begins a SQLite transaction batch so multiple event recordings and entity snapshots
+    /// within a simulation tick commit in a single disk sync. Supports nested calls.
+    /// </summary>
+    public void BeginBatch()
+    {
+        lock (_dbLock)
+        {
+            if (_dbConnection == null || _dbConnection.State != System.Data.ConnectionState.Open)
+                return;
+
+            if (_batchDepth == 0)
+            {
+                _activeTransaction = _dbConnection.BeginTransaction();
+            }
+            _batchDepth++;
+        }
+    }
+
+    /// <summary>
+    /// Commits the active SQLite batch transaction when the outermost batch closes.
+    /// </summary>
+    public void EndBatch()
+    {
+        lock (_dbLock)
+        {
+            if (_batchDepth <= 0)
+                return;
+
+            _batchDepth--;
+            if (_batchDepth == 0 && _activeTransaction != null)
+            {
+                try
+                {
+                    _activeTransaction.Commit();
+                }
+                catch (Exception ex)
+                {
+                    GD.PrintErr($"ChronicleManager: Failed to commit batch transaction: {ex.Message}");
+                    try
+                    {
+                        _activeTransaction.Rollback();
+                    }
+                    catch
+                    {
+                    }
+                }
+                finally
+                {
+                    _activeTransaction.Dispose();
+                    _activeTransaction = null;
+                }
+            }
+        }
+    }
+
     /// <summary>
     /// Inserts a new event record into the SQLite chronicle.
     /// </summary>
@@ -280,7 +348,7 @@ public partial class ChronicleManager : Node
                     SELECT last_insert_rowid();
                 ";
 
-                using var cmd = _dbConnection.CreateCommand();
+                using var cmd = CreateCommand();
                 cmd.CommandText = insertSql;
                 cmd.Parameters.AddWithValue("@tick", record.Tick);
                 cmd.Parameters.AddWithValue("@category", record.Category ?? string.Empty);
@@ -335,7 +403,7 @@ public partial class ChronicleManager : Node
                 WHERE 1=1
             ");
 
-            using var cmd = _dbConnection.CreateCommand();
+            using var cmd = CreateCommand();
 
             AppendFilterConditions(queryBuilder, cmd, filter);
 
@@ -439,7 +507,7 @@ public partial class ChronicleManager : Node
                 SELECT COUNT(*) FROM chronicle_events WHERE 1=1
             ");
 
-            using var cmd = _dbConnection.CreateCommand();
+            using var cmd = CreateCommand();
             AppendFilterConditions(queryBuilder, cmd, filter);
 
             cmd.CommandText = queryBuilder.ToString();
@@ -460,7 +528,7 @@ public partial class ChronicleManager : Node
                 return;
             }
 
-            using var cmd = _dbConnection.CreateCommand();
+            using var cmd = CreateCommand();
             cmd.CommandText = @"
                 DELETE FROM chronicle_events;
                 DELETE FROM chronicle_entities;
@@ -566,7 +634,7 @@ public partial class ChronicleManager : Node
                     summary_json = CASE WHEN @summary IS NOT NULL THEN @summary ELSE chronicle_entities.summary_json END;
             ";
 
-            using var cmd = _dbConnection.CreateCommand();
+            using var cmd = CreateCommand();
             cmd.CommandText = sql;
             cmd.Parameters.AddWithValue("@id", chronicleId);
             cmd.Parameters.AddWithValue("@type", entityType ?? string.Empty);
@@ -600,7 +668,7 @@ public partial class ChronicleManager : Node
             if (_dbConnection == null || _dbConnection.State != System.Data.ConnectionState.Open)
                 return null;
 
-            using (var cmd = _dbConnection.CreateCommand())
+            using (var cmd = CreateCommand())
             {
                 cmd.CommandText = @"
                     SELECT chronicle_id, entity_type, display_name, status, last_known_tick, summary_json
@@ -870,6 +938,21 @@ public partial class ChronicleManager : Node
     {
         lock (_dbLock)
         {
+            if (_activeTransaction != null)
+            {
+                try
+                {
+                    _activeTransaction.Commit();
+                }
+                catch
+                {
+                    try { _activeTransaction.Rollback(); } catch { }
+                }
+                _activeTransaction.Dispose();
+                _activeTransaction = null;
+            }
+            _batchDepth = 0;
+
             if (_dbConnection != null)
             {
                 _dbConnection.Close();

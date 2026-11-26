@@ -39,6 +39,7 @@ ChronicleManager.TickProvider = () => MyClock.HasInstance ? MyClock.Instance.Cur
 ```
 
 - Always guard singleton access inside `TickProvider` so headless unit tests without the clock in the SceneTree do not throw or log errors.
+- For high-speed simulation ticks (`8x`/`16x` or large entity counts), wrap each tick's work in `ChronicleManager.Instance?.BeginBatch()` and `ChronicleManager.Instance?.EndBatch()` (in a `try/finally`) to commit all writes in one SQLite transaction per tick.
 - For retrospective or custom-timestamped events, use `.AtTick(int tick)` on `ChronicleEventBuilder`.
 
 ### Step 4: Wire New-Game Reset

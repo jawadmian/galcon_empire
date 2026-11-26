@@ -11,7 +11,7 @@ ResourceOutput = Dictionary[int, int]({
 3: 25
 })
 BuildCost = Dictionary[int, int]({
-1: 1000,
-2: 500
+1: 5000,
+2: 2500
 })
 metadata/_custom_type_script = "uid://dlw4b8trmmkgu"
